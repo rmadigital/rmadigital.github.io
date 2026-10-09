@@ -1,0 +1,1395 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Solar Sprint Results</title>
+    <!-- Excel export (.xlsx). Without it, CSV export still works. -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f8fa;
+        --surface: #ffffff;
+        --surface-2: #f0f4f7;
+        --line: #e4ebef;
+        --ink: #193850;
+        --ink-2: #52687a;
+        --muted: #7b8e9e;
+        --navy: #0b2d49;
+        --accent: #076eaa;
+        --series-1: #2a78d6;
+        --series-2: #eb6834;
+        --track: #e9eff3;
+        --good: #00885e;
+        --bad: #b2394f;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          color-scheme: dark;
+          --bg: #10161b;
+          --surface: #1a2229;
+          --surface-2: #222c34;
+          --line: #2e3a44;
+          --ink: #eef3f6;
+          --ink-2: #b9c7d1;
+          --muted: #8a9ba8;
+          --navy: #eef3f6;
+          --accent: #5aa9e0;
+          --series-1: #3987e5;
+          --series-2: #d95926;
+          --track: #26323b;
+          --good: #3fbf8f;
+          --bad: #e66767;
+        }
+      }
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #10161b;
+        --surface: #1a2229;
+        --surface-2: #222c34;
+        --line: #2e3a44;
+        --ink: #eef3f6;
+        --ink-2: #b9c7d1;
+        --muted: #8a9ba8;
+        --navy: #eef3f6;
+        --accent: #5aa9e0;
+        --series-1: #3987e5;
+        --series-2: #d95926;
+        --track: #26323b;
+        --good: #3fbf8f;
+        --bad: #e66767;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font: 14px/1.5 Tahoma, "Segoe UI", sans-serif;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+      .hidden {
+        display: none !important;
+      }
+      header {
+        background: var(--surface);
+        border-bottom: 1px solid var(--line);
+        padding: 16px max(16px, 4%);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px 20px;
+      }
+      header h1 {
+        margin: 0;
+        font-size: 20px;
+        color: var(--navy);
+      }
+      .eyebrow {
+        font: 10px Arial;
+        letter-spacing: 1.7px;
+        color: var(--muted);
+      }
+      .head-actions {
+        margin-left: auto;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .btn {
+        border: 1px solid var(--line);
+        background: var(--surface);
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .btn:hover:not(:disabled) {
+        background: var(--surface-2);
+      }
+      .btn.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      .btn:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 3px solid #008dc8;
+        outline-offset: 2px;
+      }
+      .updated {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      main {
+        max-width: 1400px;
+        margin: auto;
+        padding: 20px max(16px, 4%) 48px;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 16px 18px;
+      }
+      .card h2 {
+        margin: 0 0 4px;
+        font-size: 15px;
+        color: var(--navy);
+      }
+      .card .sub {
+        margin: 0 0 14px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      /* filters: one row above everything they control */
+      .filters {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 10px 12px;
+        align-items: end;
+      }
+      .filters label {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 12px;
+        color: var(--ink-2);
+      }
+      .filters input,
+      .filters select {
+        border: 1px solid var(--line);
+        background: var(--surface);
+        border-radius: 8px;
+        padding: 7px 9px;
+        min-width: 0;
+      }
+      .filters .check {
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+        padding-bottom: 8px;
+      }
+      .filter-foot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .filter-foot .btn {
+        margin-left: auto;
+      }
+
+      /* export */
+      .exports {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .export {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .export b {
+        color: var(--navy);
+      }
+      .export p {
+        margin: 0;
+        font-size: 12px;
+        color: var(--muted);
+        flex: 1;
+      }
+      .export .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 4px;
+      }
+      @media (max-width: 900px) {
+        .exports {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+
+      .kpis {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 12px;
+        margin: 16px 0;
+      }
+      .kpi {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 14px 16px;
+      }
+      .kpi span {
+        display: block;
+        font-size: 12px;
+        color: var(--ink-2);
+      }
+      .kpi b {
+        display: block;
+        font-size: 26px;
+        line-height: 1.25;
+        color: var(--navy);
+        font-variant-numeric: tabular-nums;
+      }
+      .kpi small {
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+      .grid .wide {
+        grid-column: 1 / -1;
+      }
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+
+      /* column chart */
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        font-size: 12px;
+        color: var(--ink-2);
+        margin-bottom: 10px;
+      }
+      .legend i {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        margin-right: 6px;
+        vertical-align: -1px;
+      }
+      .cols {
+        display: flex;
+        align-items: stretch;
+        gap: 3px;
+        height: 190px;
+        border-bottom: 1px solid var(--line);
+        overflow-x: auto;
+      }
+      .col {
+        flex: 1 0 18px;
+        max-width: 72px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        gap: 2px;
+        padding: 0 1px;
+      }
+      .col:hover {
+        background: var(--surface-2);
+        border-radius: 4px 4px 0 0;
+      }
+      .col .seg:first-of-type {
+        border-radius: 4px 4px 0 0;
+      }
+      .col .val {
+        font-size: 10px;
+        color: var(--ink-2);
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+      }
+      .col-labels {
+        display: flex;
+        gap: 3px;
+        overflow: hidden;
+      }
+      .col-labels span {
+        flex: 1 0 18px;
+        max-width: 72px;
+        text-align: center;
+        font-size: 10px;
+        color: var(--muted);
+        padding-top: 4px;
+        white-space: nowrap;
+      }
+      .s1 {
+        background: var(--series-1);
+      }
+      .s2 {
+        background: var(--series-2);
+      }
+      .empty {
+        color: var(--muted);
+        font-size: 13px;
+        padding: 24px 0;
+        text-align: center;
+      }
+
+      /* horizontal bars */
+      .hbars {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .hbar {
+        display: grid;
+        grid-template-columns: minmax(90px, 170px) 1fr auto;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+      }
+      .hbar .track {
+        height: 12px;
+        background: var(--track);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .hbar .track i {
+        display: block;
+        height: 100%;
+        border-radius: 0 4px 4px 0;
+      }
+      .hbar b {
+        font-variant-numeric: tabular-nums;
+        min-width: 3ch;
+        text-align: right;
+      }
+
+      /* tables */
+      .table-wrap {
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      th,
+      td {
+        padding: 8px 10px;
+        text-align: left;
+        border-bottom: 1px solid var(--line);
+        white-space: nowrap;
+      }
+      th {
+        font-size: 12px;
+        color: var(--ink-2);
+        font-weight: normal;
+        background: var(--surface-2);
+      }
+      th[data-sort] {
+        cursor: pointer;
+        user-select: none;
+      }
+      th[data-sort]:after {
+        content: " ↕";
+        color: var(--muted);
+      }
+      th.asc:after {
+        content: " ↑";
+        color: var(--ink);
+      }
+      th.desc:after {
+        content: " ↓";
+        color: var(--ink);
+      }
+      td.num,
+      th.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      tr:hover td {
+        background: var(--surface-2);
+      }
+      .pill {
+        display: inline-block;
+        padding: 1px 8px;
+        border-radius: 99px;
+        font-size: 11px;
+        border: 1px solid var(--line);
+      }
+      .pill.ok {
+        color: var(--good);
+      }
+      .pill.no {
+        color: var(--bad);
+      }
+      .mini {
+        display: inline-block;
+        width: 70px;
+        height: 8px;
+        background: var(--track);
+        border-radius: 4px;
+        overflow: hidden;
+        vertical-align: middle;
+        margin-right: 6px;
+      }
+      .mini i {
+        display: block;
+        height: 100%;
+        background: var(--series-1);
+      }
+      .tabs {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+      .tabs button {
+        border: 1px solid var(--line);
+        background: var(--surface);
+        border-radius: 99px;
+        padding: 6px 14px;
+        font-size: 13px;
+      }
+      .tabs button[aria-selected="true"] {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      .pager {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .rank {
+        font-weight: bold;
+        color: var(--accent);
+      }
+      .insights {
+        margin: 0;
+        padding-left: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .notice {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--bad);
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin-bottom: 16px;
+      }
+      .notice code {
+        background: var(--surface-2);
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
+      #tip {
+        position: fixed;
+        pointer-events: none;
+        z-index: 10;
+        background: var(--navy);
+        color: var(--surface);
+        font-size: 12px;
+        padding: 6px 9px;
+        border-radius: 7px;
+        max-width: 260px;
+        box-shadow: 0 6px 18px #0003;
+      }
+      @media print {
+        .head-actions,
+        .filters-card .filter-foot .btn,
+        .exports,
+        .pager,
+        .tabs,
+        #listCard {
+          display: none !important;
+        }
+        body {
+          background: #fff;
+        }
+        .card,
+        .kpi {
+          break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <div class="eyebrow">SOLAR SPRINT · RMA ENERGY</div>
+        <h1>📊 ผลการเล่นและรายงาน</h1>
+      </div>
+      <div class="head-actions">
+        <span class="updated" id="updated"></span>
+        <label class="updated"><input type="checkbox" id="auto" checked /> อัปเดตทุก 1 นาที</label>
+        <button class="btn" id="reload">⟳ โหลดใหม่</button>
+        <button class="btn" id="print">🖨 พิมพ์รายงาน</button>
+      </div>
+    </header>
+
+    <main>
+      <div id="error" class="notice hidden" role="alert"></div>
+
+      <div id="app" class="hidden">
+        <section class="card filters-card">
+          <div class="filters">
+            <label>ตั้งแต่วันที่<input type="date" id="fFrom" /></label>
+            <label>ถึงวันที่<input type="date" id="fTo" /></label>
+            <label
+              >ช่วงเวลา
+              <select id="fHour">
+                <option value="">ทั้งวัน</option>
+              </select></label
+            >
+            <label
+              >ด่าน
+              <select id="fHome">
+                <option value="">ทุกด่าน</option>
+              </select></label
+            >
+            <label
+              >ผลการเล่น
+              <select id="fResult">
+                <option value="">ทั้งหมด</option>
+                <option value="pass">แก้สำเร็จ (รางวัลที่ 1)</option>
+                <option value="fail">ไม่สำเร็จ (รางวัลปลอบใจ)</option>
+              </select></label
+            >
+            <label
+              >การมอบรางวัล
+              <select id="fClaim">
+                <option value="">ทั้งหมด</option>
+                <option value="yes">มอบรางวัลแล้ว</option>
+                <option value="no">ยังไม่ได้มอบ</option>
+              </select></label
+            >
+            <label>คะแนนต่ำสุด<input type="number" id="fMin" min="0" max="1900" step="50" /></label>
+            <label>คะแนนสูงสุด<input type="number" id="fMax" min="0" max="1900" step="50" /></label>
+            <label
+              >ค้นหาชื่อ / เบอร์ / รหัส<input type="search" id="fText" placeholder="เช่น สมชาย หรือ 0812"
+            /></label>
+            <label class="check"><input type="checkbox" id="fBest" /> เฉพาะรอบที่ดีที่สุดของแต่ละคน</label>
+          </div>
+          <div class="filter-foot">
+            <span id="filterNote"></span>
+            <button class="btn" id="reset">ล้างตัวกรอง</button>
+          </div>
+          <div class="exports">
+            <div class="export">
+              <b>⇩ รวมทั้งหมด</b>
+              <p>ไฟล์ Excel เดียว แยกแท็บ: สรุป, รายคน, รายเกม, แยกตามด่าน, รายชั่วโมง</p>
+              <div class="row"><button class="btn primary" id="exAll">Excel (.xlsx)</button></div>
+            </div>
+            <div class="export">
+              <b>⇩ แบ่งรายคน</b>
+              <p>1 แถวต่อ 1 คน: เบอร์โทร, รหัสรับรางวัล, จำนวนรอบ, คะแนนดีที่สุด, การมอบรางวัล</p>
+              <div class="row">
+                <button class="btn" id="exPeopleX">Excel</button><button class="btn" id="exPeopleC">CSV</button>
+              </div>
+            </div>
+            <div class="export">
+              <b>⇩ แบ่งรายเกม</b>
+              <p>1 แถวต่อ 1 รอบที่เล่น: เวลา, ด่าน, คะแนน, ผล, เวลาที่ใช้</p>
+              <div class="row">
+                <button class="btn" id="exGamesX">Excel</button><button class="btn" id="exGamesC">CSV</button>
+              </div>
+            </div>
+          </div>
+          <p class="updated" id="exportNote">ไฟล์ที่ส่งออกใช้ตัวกรองด้านบน (ล้างตัวกรองเพื่อเอาข้อมูลทั้งหมด)</p>
+        </section>
+
+        <section class="kpis" id="kpis"></section>
+
+        <div class="grid">
+          <section class="card wide">
+            <h2>สรุปสั้น</h2>
+            <p class="sub">ข้อสังเกตจากข้อมูลตามตัวกรองปัจจุบัน</p>
+            <ul class="insights" id="insights"></ul>
+          </section>
+
+          <section class="card wide">
+            <h2>จำนวนรอบตามช่วงเวลา</h2>
+            <p class="sub">ช่วงไหนบูธคนเยอะ ใช้วางกำลังทีมงานและเตรียมของรางวัล</p>
+            <div class="tabs" role="tablist" id="timeTabs">
+              <button role="tab" data-mode="hour" aria-selected="true">รายชั่วโมง</button>
+              <button role="tab" data-mode="day" aria-selected="false">รายวัน</button>
+            </div>
+            <div class="legend"><span><i class="s1"></i>แก้สำเร็จ</span><span><i class="s2"></i>ไม่สำเร็จ</span></div>
+            <div id="timeChart"></div>
+          </section>
+
+          <section class="card wide">
+            <h2>ผลแยกตามด่าน</h2>
+            <p class="sub">ด่านถูกสุ่มทุกรอบ ตารางนี้บอกความยากของแต่ละด่าน (อัตราผ่านต่ำ = ยาก)</p>
+            <div class="table-wrap"><table id="levelTable"></table></div>
+          </section>
+
+          <section class="card">
+            <h2>การกระจายคะแนน</h2>
+            <p class="sub">จำนวนรอบในแต่ละช่วงคะแนน (ช่วงละ 100)</p>
+            <div class="legend">
+              <span><i class="s1"></i>แก้สำเร็จ (1,000+)</span><span><i class="s2"></i>ไม่สำเร็จ (0–499)</span>
+            </div>
+            <div id="scoreChart"></div>
+          </section>
+
+          <section class="card">
+            <h2>เวลาที่ใช้แก้ puzzle</h2>
+            <p class="sub">เฉพาะรอบที่แก้สำเร็จ แบ่งช่วงละ 5 วินาที</p>
+            <div id="solveChart"></div>
+          </section>
+
+          <section class="card">
+            <h2>จำนวนรอบต่อคน</h2>
+            <p class="sub">ผู้เล่นกลับมาเล่นซ้ำมากแค่ไหน</p>
+            <div id="repeatChart"></div>
+          </section>
+
+          <section class="card">
+            <h2>สถานะรางวัล</h2>
+            <p class="sub">นับเป็นคน ใช้ผลที่ดีที่สุดของแต่ละคน</p>
+            <div id="prizeChart"></div>
+          </section>
+
+          <section class="card wide">
+            <h2>🏆 อันดับคะแนน (TOP 20)</h2>
+            <p class="sub">คะแนนดีที่สุดของแต่ละคนตามตัวกรอง คะแนนเท่ากันให้คนที่ทำได้ก่อน</p>
+            <div class="table-wrap"><table id="topTable"></table></div>
+          </section>
+
+          <section class="card wide" id="listCard">
+            <div class="tabs" role="tablist" id="listTabs">
+              <button role="tab" data-list="games" aria-selected="true">รายเกม</button>
+              <button role="tab" data-list="people" aria-selected="false">รายคน</button>
+            </div>
+            <div class="table-wrap"><table id="listTable"></table></div>
+            <div class="pager">
+              <span id="pageInfo"></span>
+              <button class="btn" id="prev">‹ ก่อนหน้า</button>
+              <button class="btn" id="next">ถัดไป ›</button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+    <div id="tip" class="hidden" role="tooltip"></div>
+
+    <script>
+      (() => {
+        // Same value as REMOTE_SECRET in index.html (made with tools/encode-config.html).
+        const REMOTE_SECRET = "PYFTTBFHBg3CAAwHRFwQat0Qe5lRCVEFKZFWcFUHYVlRB11XAdkRUA1WOZhFmpgHd0RBL5lUQgkCEMkQss3EcoDOksAHeABfLdgLVIBZJIjJw4jDUgTFq1SDbYAQeN1PDREPkM0IE0hK+8iPwg3NjEDRP4BJ5sESHkiOIowTCQBF/8iRB8FACBgANIAXA5gDcFhAO0xHUMgBRUQHQ4lTCh0Be0hBYE1FQ1gH6oRXA8UC";
+        const SECRET_SALT = "rma-solar-sprint";
+        function decodeSecret(secret) {
+          if (!secret) return {};
+          try {
+            const bin = atob(secret.split("").reverse().join(""));
+            const bytes = Uint8Array.from(bin, (c, i) => c.charCodeAt(0) ^ SECRET_SALT.charCodeAt(i % SECRET_SALT.length));
+            return JSON.parse(new TextDecoder().decode(bytes)) || {};
+          } catch {
+            return {};
+          }
+        }
+        const REMOTE = decodeSecret(REMOTE_SECRET);
+
+        const $ = (id) => document.getElementById(id);
+        const HOMES = {
+          small: "บ้านเริ่มต้น",
+          family: "บ้านครอบครัว",
+          large: "บ้านหลังใหญ่",
+          townhome: "ทาวน์โฮม",
+          shop: "อาคารพาณิชย์",
+          garage: "โรงจอดรถ",
+        };
+        const ROUND_SECONDS = 45,
+          PAGE = 50;
+        const homeTitle = (id) => HOMES[id] ?? id;
+        const nf = (n, d = 0) => Number(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+        const pct = (a, b) => (b ? nf((a / b) * 100, 1) + "%" : "–");
+        const esc = (s) =>
+          String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+        const fmtPhone = (p) =>
+          p.length === 10 ? p.slice(0, 3) + "-" + p.slice(3, 6) + "-" + p.slice(6) : p.slice(0, 2) + "-" + p.slice(2, 5) + "-" + p.slice(5);
+        const fmtTime = (at) => (at ? new Date(at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "medium" }) : "");
+        const pad2 = (n) => String(n).padStart(2, "0");
+        const dayKey = (at) => {
+          const d = new Date(at);
+          return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+        };
+        const used = (r) => Math.max(0, ROUND_SECONDS - (r.remaining || 0));
+        const avg = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+        const median = (xs) => {
+          if (!xs.length) return 0;
+          const s = [...xs].sort((a, b) => a - b),
+            m = s.length >> 1;
+          return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+        };
+        const prizeText = (passed) => (passed ? "รางวัลที่ 1" : "รางวัลปลอบใจ");
+
+        let data = { plays: [], players: [] },
+          byPhone = new Map(),
+          timeMode = "hour",
+          list = "games",
+          page = 0,
+          sort = { games: { k: "at", dir: -1 }, people: { k: "best", dir: -1 } },
+          autoTimer = 0,
+          view = { games: [], people: [] };
+
+        // ---------- data ----------
+        async function load() {
+          if (!/^https:\/\/\S+$/.test(REMOTE.apiUrl || "")) {
+            showError(
+              'ยังไม่ได้ใส่ลิงก์ Google Sheet: เปิด result.html ด้วยโปรแกรมแก้โค้ด หา <code>const REMOTE_SECRET = "";</code> แล้ววางค่าเดียวกับใน index.html',
+            );
+            return;
+          }
+          $("reload").disabled = true;
+          try {
+            const res = await fetch(REMOTE.apiUrl + "?" + new URLSearchParams({ action: "data", key: REMOTE.kioskKey || "" }), {
+              cache: "no-store",
+            });
+            const d = await res.json();
+            if (!d.ok) throw new Error(d.message || "Google Sheet ตอบกลับผิดพลาด");
+            data = { plays: d.plays || [], players: d.players || [] };
+            byPhone = new Map(data.players.map((p) => [p.phone, p]));
+            $("error").classList.add("hidden");
+            $("app").classList.remove("hidden");
+            $("updated").textContent = "อัปเดต " + new Date().toLocaleTimeString("th-TH");
+            fillOptions();
+            render();
+          } catch (e) {
+            showError(
+              "โหลดข้อมูลจาก Google Sheet ไม่สำเร็จ: " +
+                esc(e.message) +
+                (/data|ไม่รู้จักคำสั่ง/.test(e.message) ? " · อัปเดต Code.gs เป็นเวอร์ชันล่าสุด แล้ว Deploy เวอร์ชันใหม่" : ""),
+            );
+          } finally {
+            $("reload").disabled = false;
+          }
+          scheduleAuto();
+        }
+        function showError(html) {
+          $("error").innerHTML = html;
+          $("error").classList.remove("hidden");
+        }
+        function scheduleAuto() {
+          clearTimeout(autoTimer);
+          if ($("auto").checked) autoTimer = setTimeout(load, 60000);
+        }
+        function fillOptions() {
+          const fill = (id, items) => {
+            const el = $(id),
+              cur = el.value;
+            el.innerHTML = el.options[0].outerHTML + items.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join("");
+            el.value = items.some(([v]) => v === cur) ? cur : "";
+          };
+          fill("fHome", Object.entries(HOMES));
+          if ($("fHour").options.length === 1)
+            fill("fHour", Array.from({ length: 24 }, (_, h) => [String(h), pad2(h) + ":00–" + pad2(h) + ":59"]));
+        }
+
+        // ---------- filters ----------
+        function filters() {
+          return {
+            from: $("fFrom").value,
+            to: $("fTo").value,
+            hour: $("fHour").value,
+            home: $("fHome").value,
+            result: $("fResult").value,
+            claim: $("fClaim").value,
+            min: $("fMin").value === "" ? null : Number($("fMin").value),
+            max: $("fMax").value === "" ? null : Number($("fMax").value),
+            text: $("fText").value.trim().toLowerCase(),
+            best: $("fBest").checked,
+          };
+        }
+        const claimed = (phone) => !!byPhone.get(phone)?.claimedAt;
+        function matchText(f, name, phone, code) {
+          if (!f.text) return true;
+          const digits = f.text.replace(/\D/g, "");
+          return (
+            String(name).toLowerCase().includes(f.text) ||
+            (digits.length >= 3 && phone.includes(digits)) ||
+            (digits.length >= 4 && String(code || "") === digits)
+          );
+        }
+        const inDate = (f, at) => {
+          const k = dayKey(at);
+          return (!f.from || k >= f.from) && (!f.to || k <= f.to);
+        };
+        function filteredGames(f = filters()) {
+          let rows = data.plays.filter(
+            (p) =>
+              inDate(f, p.at) &&
+              (f.hour === "" || new Date(p.at).getHours() === Number(f.hour)) &&
+              (!f.home || p.home === f.home) &&
+              (!f.result || (f.result === "pass") === !!p.passed) &&
+              (!f.claim || (f.claim === "yes") === claimed(p.phone)) &&
+              (f.min === null || p.total >= f.min) &&
+              (f.max === null || p.total <= f.max) &&
+              matchText(f, p.name, p.phone, p.code),
+          );
+          if (f.best) rows = bestPerPlayer(rows);
+          return rows;
+        }
+        // Best round per phone; ties go to whoever got there first.
+        function bestPerPlayer(rows) {
+          const best = new Map();
+          for (const p of rows) {
+            const cur = best.get(p.phone);
+            if (!cur || p.total > cur.total || (p.total === cur.total && p.at < cur.at)) best.set(p.phone, p);
+          }
+          return [...best.values()].sort((a, b) => b.total - a.total || a.at - b.at);
+        }
+        // One row per person: everyone who registered, plus anyone seen only in rounds. Stats come from the filtered rounds.
+        function peopleRows(games, f) {
+          const people = new Map();
+          const blank = (p) => ({ ...p, rounds: 0, passes: 0, best: null, totalScore: 0, lastPlay: null });
+          for (const p of data.players) people.set(p.phone, blank(p));
+          for (const g of data.plays)
+            if (!people.has(g.phone)) people.set(g.phone, blank({ name: g.name, phone: g.phone, code: g.code, first: g.at, last: g.at }));
+          for (const g of games) {
+            const p = people.get(g.phone);
+            p.rounds++;
+            p.totalScore += g.total;
+            if (g.passed) p.passes++;
+            if (!p.best || g.total > p.best.total) p.best = g;
+            if (!p.lastPlay || g.at > p.lastPlay) p.lastPlay = g.at;
+          }
+          const roundFilter = f.hour !== "" || f.home || f.result || f.min !== null || f.max !== null;
+          return [...people.values()].filter(
+            (p) =>
+              matchText(f, p.name, p.phone, p.code) &&
+              (!f.claim || (f.claim === "yes") === !!p.claimedAt) &&
+              // With round filters only people with a matching round stay; dates also match on registration.
+              (p.rounds > 0 || (!roundFilter && (!p.first || inDate(f, p.first)))),
+          );
+        }
+
+        // ---------- render ----------
+        function render() {
+          const f = filters(),
+            games = filteredGames(f),
+            people = peopleRows(f.best ? filteredGames({ ...f, best: false }) : games, f);
+          view = { games, people };
+          $("filterNote").textContent =
+            "แสดง " + nf(games.length) + " จาก " + nf(data.plays.length) + " รอบ · " + nf(people.length) + " คน";
+          renderKpis(games, people);
+          renderInsights(games, people);
+          renderTime(games);
+          renderLevels(games);
+          renderScores(games);
+          renderSolve(games);
+          renderRepeat(people);
+          renderPrize(people);
+          renderTop(games);
+          drawList();
+        }
+
+        function kpiValues(games, people) {
+          const playedPhones = new Set(games.map((r) => r.phone)),
+            passed = games.filter((r) => r.passed),
+            winners = new Set(passed.map((r) => r.phone)),
+            given = people.filter((p) => p.claimedAt).length,
+            givenFirst = people.filter((p) => p.claimedAt && winners.has(p.phone)).length;
+          return {
+            players: playedPhones.size,
+            rounds: games.length,
+            perPlayer: playedPhones.size ? games.length / playedPhones.size : 0,
+            passRate: games.length ? passed.length / games.length : 0,
+            passed: passed.length,
+            winners: winners.size,
+            given,
+            givenFirst,
+            avgScore: avg(games.map((r) => r.total)),
+            medScore: median(games.map((r) => r.total)),
+            top: games.reduce((m, r) => Math.max(m, r.total), 0),
+            avgSolve: passed.length ? avg(passed.map(used)) : null,
+            noRound: people.filter((p) => !p.rounds).length,
+          };
+        }
+        function renderKpis(games, people) {
+          const k = kpiValues(games, people);
+          const tiles = [
+            ["ผู้เล่น", nf(k.players), "คนที่เล่นจบอย่างน้อย 1 รอบ"],
+            ["รอบที่เล่น", nf(k.rounds), "เฉลี่ย " + nf(k.perPlayer, 1) + " รอบ/คน"],
+            ["อัตราแก้สำเร็จ", games.length ? nf(k.passRate * 100, 1) + "%" : "–", nf(k.passed) + " รอบผ่าน"],
+            ["ได้รางวัลที่ 1", nf(k.winners), pct(k.winners, k.players) + " ของผู้เล่น"],
+            ["มอบรางวัลแล้ว", nf(k.given), "ทุกรางวัล · รางวัลที่ 1 " + nf(k.givenFirst) + " คน"],
+            ["คะแนนเฉลี่ย", nf(k.avgScore), "มัธยฐาน " + nf(k.medScore)],
+            ["คะแนนสูงสุด", nf(k.top), "เต็ม 1,900"],
+            ["เวลาแก้เฉลี่ย", k.avgSolve === null ? "–" : nf(k.avgSolve, 1) + " วิ", "เฉพาะรอบที่แก้สำเร็จ"],
+            ["ลงชื่อแต่ยังไม่จบรอบ", nf(k.noRound), "รายชื่อที่ยังติดต่อได้"],
+          ];
+          $("kpis").innerHTML = tiles
+            .map(([label, value, note]) => `<div class="kpi"><span>${label}</span><b>${value}</b><small>${note}</small></div>`)
+            .join("");
+        }
+
+        function insightList(games, people) {
+          if (!games.length) return ["ยังไม่มีรอบที่ตรงกับตัวกรอง"];
+          const out = [];
+          const hours = new Map();
+          for (const r of games) {
+            const h = new Date(r.at).getHours();
+            hours.set(h, (hours.get(h) || 0) + 1);
+          }
+          const [peakH, peakN] = [...hours].sort((a, b) => b[1] - a[1])[0];
+          out.push(`ช่วงที่คนเล่นมากที่สุดคือ ${pad2(peakH)}:00–${pad2(peakH)}:59 (${nf(peakN)} รอบ)`);
+          const lv = levelStats(games).filter((l) => l.rounds >= 3);
+          if (lv.length >= 2) {
+            const hard = lv.reduce((a, b) => (b.passRate < a.passRate ? b : a)),
+              easy = lv.reduce((a, b) => (b.passRate > a.passRate ? b : a));
+            out.push(
+              `ด่านที่ยากที่สุดคือ ${homeTitle(hard.id)} (ผ่าน ${nf(hard.passRate * 100, 1)}%) ด่านง่ายสุดคือ ${homeTitle(easy.id)} (ผ่าน ${nf(easy.passRate * 100, 1)}%)`,
+            );
+          }
+          const counts = new Map();
+          for (const r of games) counts.set(r.phone, (counts.get(r.phone) || 0) + 1);
+          out.push(`ผู้เล่น ${pct([...counts.values()].filter((n) => n > 1).length, counts.size)} กลับมาเล่นมากกว่า 1 รอบ`);
+          // Do repeat players improve? Compare each repeater's first and best round.
+          const runs = new Map();
+          for (const r of [...games].sort((a, b) => a.at - b.at)) {
+            const x = runs.get(r.phone) || { first: r, best: r, n: 0 };
+            x.n++;
+            if (r.total > x.best.total) x.best = r;
+            runs.set(r.phone, x);
+          }
+          const gains = [...runs.values()].filter((x) => x.n > 1).map((x) => x.best.total - x.first.total);
+          if (gains.length) out.push(`คนที่เล่นซ้ำทำคะแนนดีขึ้นเฉลี่ย +${nf(avg(gains))} คะแนนจากรอบแรก`);
+          const k = kpiValues(games, people);
+          if (k.winners) out.push(`มอบรางวัลที่ 1 ไปแล้ว ${nf(k.givenFirst)} จาก ${nf(k.winners)} คน`);
+          if (k.noRound) out.push(`มี ${nf(k.noRound)} คนที่ลงชื่อแล้วแต่ยังไม่มีรอบที่เล่นจบ`);
+          const passed = games.filter((r) => r.passed);
+          if (passed.length) {
+            const fast = passed.reduce((a, b) => (used(b) < used(a) ? b : a));
+            out.push(`แก้เร็วที่สุด ${nf(used(fast), 1)} วินาที โดย ${fast.name} (${homeTitle(fast.home)})`);
+          }
+          return out;
+        }
+        function renderInsights(games, people) {
+          $("insights").innerHTML = insightList(games, people)
+            .map((s) => `<li>${esc(s)}</li>`)
+            .join("");
+        }
+
+        // Column chart: buckets of {label, tip, a (passed), b (not passed)}; one series when b is absent.
+        function columns(el, buckets, { stacked = true, showValues = true } = {}) {
+          const max = Math.max(0, ...buckets.map((b) => (b.a || 0) + (b.b || 0)));
+          if (!max) {
+            $(el).innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>';
+            return;
+          }
+          const every = Math.ceil(buckets.length / 16);
+          const seg = (n, cls) => (n ? `<div class="seg ${cls}" style="height:${(n / max) * 170}px"></div>` : "");
+          $(el).innerHTML =
+            `<div class="cols">${buckets
+              .map((b) => {
+                const total = (b.a || 0) + (b.b || 0);
+                return `<div class="col" data-tip="${esc(b.tip)}">${showValues && total ? `<span class="val">${nf(total)}</span>` : ""}${stacked ? seg(b.b, "s2") + seg(b.a, "s1") : seg(b.a, "s1")}</div>`;
+              })
+              .join("")}</div><div class="col-labels">${buckets.map((b, i) => `<span>${i % every === 0 ? esc(b.label) : ""}</span>`).join("")}</div>`;
+        }
+        // Horizontal bars: [{label, n}].
+        function hbars(el, items, total) {
+          if (!items.length || !items.some((i) => i.n)) {
+            $(el).innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>';
+            return;
+          }
+          const max = Math.max(...items.map((i) => i.n));
+          $(el).innerHTML = `<div class="hbars">${items
+            .map(
+              (i) =>
+                `<div class="hbar" data-tip="${esc(i.label + ": " + nf(i.n) + (total ? " (" + pct(i.n, total) + ")" : ""))}"><span>${esc(i.label)}</span><span class="track"><i class="s1" style="width:${max ? (i.n / max) * 100 : 0}%"></i></span><b>${nf(i.n)}</b></div>`,
+            )
+            .join("")}</div>`;
+        }
+        const tipPF = (head, a, b) => `${head}\nรวม ${nf(a + b)} รอบ · แก้สำเร็จ ${nf(a)} · ไม่สำเร็จ ${nf(b)}`;
+
+        function hourBuckets(games) {
+          const hs = games.map((r) => new Date(r.at).getHours());
+          const lo = hs.length ? Math.min(...hs) : 9,
+            hi = hs.length ? Math.max(...hs) : 18,
+            out = [];
+          for (let h = lo; h <= hi; h++) {
+            const inH = games.filter((r) => new Date(r.at).getHours() === h),
+              a = inH.filter((r) => r.passed).length;
+            out.push({ h, label: pad2(h) + ":00", a, b: inH.length - a, tip: tipPF(pad2(h) + ":00–" + pad2(h) + ":59", a, inH.length - a) });
+          }
+          return out;
+        }
+        function renderTime(games) {
+          if (timeMode === "hour") return columns("timeChart", hourBuckets(games));
+          const days = new Map();
+          for (const r of games) {
+            const k = dayKey(r.at),
+              d = days.get(k) || { a: 0, b: 0 };
+            r.passed ? d.a++ : d.b++;
+            days.set(k, d);
+          }
+          columns(
+            "timeChart",
+            [...days]
+              .sort(([x], [y]) => (x < y ? -1 : 1))
+              .map(([k, d]) => {
+                const label = new Date(k + "T00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+                return { label, ...d, tip: tipPF(label, d.a, d.b) };
+              }),
+          );
+        }
+
+        function levelStats(games) {
+          return Object.keys(HOMES).map((id) => {
+            const r = games.filter((p) => p.home === id),
+              passed = r.filter((p) => p.passed);
+            return {
+              id,
+              rounds: r.length,
+              players: new Set(r.map((p) => p.phone)).size,
+              passed: passed.length,
+              passRate: r.length ? passed.length / r.length : 0,
+              avgScore: avg(r.map((p) => p.total)),
+              best: r.reduce((m, p) => Math.max(m, p.total), 0),
+              avgSolve: passed.length ? avg(passed.map(used)) : null,
+              fastest: passed.length ? Math.min(...passed.map(used)) : null,
+            };
+          });
+        }
+        function renderLevels(games) {
+          $("levelTable").innerHTML =
+            `<thead><tr><th>ด่าน</th><th class="num">รอบ</th><th class="num">ผู้เล่น</th><th>อัตราแก้สำเร็จ</th><th class="num">คะแนนเฉลี่ย</th><th class="num">คะแนนสูงสุด</th><th class="num">เวลาแก้เฉลี่ย</th><th class="num">แก้เร็วสุด</th></tr></thead><tbody>` +
+            levelStats(games)
+              .map(
+                (s) =>
+                  `<tr><td>${homeTitle(s.id)}</td><td class="num">${nf(s.rounds)}</td><td class="num">${nf(s.players)}</td><td><span class="mini"><i style="width:${s.passRate * 100}%"></i></span>${s.rounds ? nf(s.passRate * 100, 1) + "%" : "–"}</td><td class="num">${s.rounds ? nf(s.avgScore) : "–"}</td><td class="num">${s.rounds ? nf(s.best) : "–"}</td><td class="num">${s.avgSolve === null ? "–" : nf(s.avgSolve, 1) + " วิ"}</td><td class="num">${s.fastest === null ? "–" : nf(s.fastest, 1) + " วิ"}</td></tr>`,
+              )
+              .join("") +
+            "</tbody>";
+        }
+
+        function renderScores(games) {
+          columns(
+            "scoreChart",
+            Array.from({ length: 19 }, (_, i) => {
+              const lo = i * 100,
+                hi = i === 18 ? 1900 : lo + 99,
+                inB = games.filter((r) => r.total >= lo && r.total <= hi),
+                a = inB.filter((r) => r.passed).length;
+              return { label: String(lo), a, b: inB.length - a, tip: tipPF(nf(lo) + "–" + nf(hi) + " คะแนน", a, inB.length - a) };
+            }),
+            { showValues: false },
+          );
+        }
+        function renderSolve(games) {
+          const passed = games.filter((r) => r.passed);
+          columns(
+            "solveChart",
+            Array.from({ length: 9 }, (_, i) => {
+              const lo = i * 5,
+                n = passed.filter((r) => used(r) >= lo && (i === 8 ? used(r) <= 45 : used(r) < lo + 5)).length;
+              return { label: lo + "–" + (lo + 5), a: n, tip: `ใช้เวลา ${lo}–${lo + 5} วินาที: ${nf(n)} รอบ` };
+            }),
+            { stacked: false },
+          );
+        }
+        function renderRepeat(people) {
+          const w = people.filter((p) => p.rounds);
+          const groups = [1, 2, 3, 4].map((n) => ({ label: n + " รอบ", n: w.filter((p) => p.rounds === n).length }));
+          groups.push({ label: "5 รอบขึ้นไป", n: w.filter((p) => p.rounds >= 5).length });
+          hbars("repeatChart", groups, w.length);
+        }
+        function renderPrize(people) {
+          const w = people.filter((p) => p.best),
+            first = w.filter((p) => p.best.passed);
+          hbars(
+            "prizeChart",
+            [
+              { label: "รางวัลที่ 1 · มอบแล้ว", n: first.filter((p) => p.claimedAt).length },
+              { label: "รางวัลที่ 1 · ยังไม่มอบ", n: first.filter((p) => !p.claimedAt).length },
+              { label: "รางวัลปลอบใจ · มอบแล้ว", n: w.filter((p) => !p.best.passed && p.claimedAt).length },
+              { label: "รางวัลปลอบใจ · ยังไม่มอบ", n: w.filter((p) => !p.best.passed && !p.claimedAt).length },
+            ],
+            w.length,
+          );
+        }
+        const resultPill = (passed) =>
+          passed ? '<span class="pill ok">✓ รางวัลที่ 1</span>' : '<span class="pill no">รางวัลปลอบใจ</span>';
+        function renderTop(games) {
+          const top = bestPerPlayer(games).slice(0, 20);
+          $("topTable").innerHTML = top.length
+            ? `<thead><tr><th class="num">อันดับ</th><th>ชื่อ</th><th>เบอร์โทร</th><th class="num">คะแนน</th><th>ด่าน</th><th>ผล</th><th class="num">เวลาที่ใช้</th><th>รหัสรับรางวัล</th><th>มอบรางวัล</th></tr></thead><tbody>${top
+                .map(
+                  (r, i) =>
+                    `<tr><td class="num rank">${i + 1}</td><td>${esc(r.name)}</td><td>${fmtPhone(r.phone)}</td><td class="num"><b>${nf(r.total)}</b></td><td>${homeTitle(r.home)}</td><td>${resultPill(r.passed)}</td><td class="num">${nf(used(r), 1)} วิ</td><td>${esc(r.code || byPhone.get(r.phone)?.code || "")}</td><td>${claimed(r.phone) ? "✓ " + fmtTime(byPhone.get(r.phone).claimedAt) : "–"}</td></tr>`,
+                )
+                .join("")}</tbody>`
+            : '<tbody><tr><td class="empty">ยังไม่มีคะแนน</td></tr></tbody>';
+        }
+
+        // ---------- column definitions shared by the tables and the exports ----------
+        // [key, header, display html, export value, numeric]
+        const COLS = {
+          games: [
+            ["at", "เวลาที่เล่น", (r) => fmtTime(r.at), (r) => fmtTime(r.at)],
+            ["name", "ชื่อ", (r) => esc(r.name), (r) => r.name],
+            ["phone", "เบอร์โทร", (r) => fmtPhone(r.phone), (r) => fmtPhone(r.phone)],
+            ["home", "ด่าน", (r) => homeTitle(r.home), (r) => homeTitle(r.home)],
+            ["total", "คะแนน", (r) => nf(r.total), (r) => r.total, true],
+            ["passed", "แก้สำเร็จ", (r) => resultPill(r.passed), (r) => (r.passed ? "ใช่" : "ไม่")],
+            ["prize", "รางวัล", (r) => prizeText(r.passed), (r) => prizeText(r.passed)],
+            ["used", "เวลาที่ใช้ (วิ)", (r) => nf(used(r), 1), (r) => Number(used(r).toFixed(1)), true],
+            ["remaining", "เวลาที่เหลือ (วิ)", (r) => nf(r.remaining, 1), (r) => r.remaining, true],
+            ["code", "รหัสรับรางวัล", (r) => esc(r.code), (r) => r.code],
+          ],
+          people: [
+            ["name", "ชื่อ", (p) => esc(p.name), (p) => p.name],
+            ["phone", "เบอร์โทร", (p) => fmtPhone(p.phone), (p) => fmtPhone(p.phone)],
+            ["code", "รหัสรับรางวัล", (p) => esc(p.code || ""), (p) => p.code || ""],
+            ["first", "ลงทะเบียน", (p) => fmtTime(p.first), (p) => fmtTime(p.first)],
+            ["lastPlay", "เล่นล่าสุด", (p) => fmtTime(p.lastPlay), (p) => fmtTime(p.lastPlay)],
+            ["rounds", "รอบที่เล่นจบ", (p) => nf(p.rounds), (p) => p.rounds, true],
+            ["passes", "แก้สำเร็จ (รอบ)", (p) => nf(p.passes), (p) => p.passes, true],
+            ["best", "คะแนนดีที่สุด", (p) => (p.best ? nf(p.best.total) : "–"), (p) => (p.best ? p.best.total : ""), true],
+            ["avg", "คะแนนเฉลี่ย", (p) => (p.rounds ? nf(p.totalScore / p.rounds) : "–"), (p) => (p.rounds ? Math.round(p.totalScore / p.rounds) : ""), true],
+            ["bestHome", "ด่านที่ทำได้ดีที่สุด", (p) => (p.best ? homeTitle(p.best.home) : "–"), (p) => (p.best ? homeTitle(p.best.home) : "")],
+            [
+              "prize",
+              "รางวัล",
+              (p) => (p.best ? resultPill(p.best.passed) : '<span class="pill">ยังไม่จบรอบ</span>'),
+              (p) => (p.best ? prizeText(p.best.passed) : "ยังไม่จบรอบ"),
+            ],
+            ["claimedAt", "มอบรางวัลเมื่อ", (p) => (p.claimedAt ? fmtTime(p.claimedAt) : "–"), (p) => fmtTime(p.claimedAt)],
+            ["device", "เครื่องที่ลงทะเบียน", (p) => esc(p.device || "–"), (p) => p.device || ""],
+          ],
+        };
+        const sortVal = {
+          used: (r) => used(r),
+          best: (p) => p.best?.total ?? -1,
+          avg: (p) => (p.rounds ? p.totalScore / p.rounds : -1),
+          bestHome: (p) => p.best?.home ?? "",
+          prize: (p) => (p.best ? (p.best.passed ? 2 : 1) : 0),
+          passed: (r) => (r.passed ? 1 : 0),
+        };
+        function sorted(name) {
+          const s = sort[name],
+            get = sortVal[s.k] ?? ((x) => x[s.k] ?? "");
+          return [...view[name]].sort((a, b) => {
+            const x = get(a),
+              y = get(b);
+            return (typeof x === "string" ? x.localeCompare(y, "th") : (x ?? 0) - (y ?? 0)) * s.dir;
+          });
+        }
+        function drawList() {
+          const rows = sorted(list),
+            pages = Math.max(1, Math.ceil(rows.length / PAGE)),
+            cols = COLS[list],
+            s = sort[list];
+          page = Math.min(page, pages - 1);
+          $("listTable").innerHTML =
+            `<thead><tr>${cols
+              .map(([k, label, , , num]) => `<th data-sort="${k}" class="${num ? "num " : ""}${s.k === k ? (s.dir > 0 ? "asc" : "desc") : ""}">${label}</th>`)
+              .join("")}</tr></thead><tbody>` +
+            (rows.length
+              ? rows
+                  .slice(page * PAGE, page * PAGE + PAGE)
+                  .map((r) => `<tr>${cols.map(([, , fn, , num]) => `<td${num ? ' class="num"' : ""}>${fn(r)}</td>`).join("")}</tr>`)
+                  .join("")
+              : `<tr><td colspan="${cols.length}" class="empty">ไม่มีข้อมูลตามตัวกรอง</td></tr>`) +
+            "</tbody>";
+          $("pageInfo").textContent = rows.length
+            ? `${nf(page * PAGE + 1)}–${nf(Math.min(rows.length, page * PAGE + PAGE))} จาก ${nf(rows.length)} · หน้า ${page + 1}/${pages}`
+            : "";
+          $("prev").disabled = page === 0;
+          $("next").disabled = page >= pages - 1;
+        }
+
+        // ---------- export ----------
+        // Tables as arrays of rows (header first); the same rows feed CSV and Excel.
+        const table = (name) => [COLS[name].map((c) => c[1]), ...sorted(name).map((r) => COLS[name].map((c) => c[3](r)))];
+        function summaryTable() {
+          const k = kpiValues(view.games, view.people),
+            f = filters();
+          const range = f.from || f.to ? (f.from || "เริ่มต้น") + " ถึง " + (f.to || "ล่าสุด") : "ทั้งหมด";
+          return [
+            ["Solar Sprint · รายงานผลการเล่น"],
+            ["ส่งออกเมื่อ", fmtTime(Date.now())],
+            ["ช่วงข้อมูล", range],
+            [],
+            ["ตัวชี้วัด", "ค่า"],
+            ["ผู้เล่น (คน)", k.players],
+            ["รอบที่เล่น", k.rounds],
+            ["เฉลี่ยรอบต่อคน", Number(k.perPlayer.toFixed(2))],
+            ["อัตราแก้สำเร็จ (%)", Number((k.passRate * 100).toFixed(1))],
+            ["ได้รางวัลที่ 1 (คน)", k.winners],
+            ["มอบรางวัลแล้ว (คน)", k.given],
+            ["คะแนนเฉลี่ย", Math.round(k.avgScore)],
+            ["คะแนนมัธยฐาน", k.medScore],
+            ["คะแนนสูงสุด", k.top],
+            ["เวลาแก้เฉลี่ย (วิ)", k.avgSolve === null ? "" : Number(k.avgSolve.toFixed(1))],
+            ["ลงชื่อแต่ยังไม่จบรอบ (คน)", k.noRound],
+            [],
+            ["ข้อสังเกต"],
+            ...insightList(view.games, view.people).map((s) => [s]),
+          ];
+        }
+        const levelTable = () => [
+          ["ด่าน", "รอบ", "ผู้เล่น", "แก้สำเร็จ (รอบ)", "อัตราแก้สำเร็จ (%)", "คะแนนเฉลี่ย", "คะแนนสูงสุด", "เวลาแก้เฉลี่ย (วิ)", "แก้เร็วสุด (วิ)"],
+          ...levelStats(view.games).map((s) => [
+            homeTitle(s.id),
+            s.rounds,
+            s.players,
+            s.passed,
+            Number((s.passRate * 100).toFixed(1)),
+            Math.round(s.avgScore),
+            s.best,
+            s.avgSolve === null ? "" : Number(s.avgSolve.toFixed(1)),
+            s.fastest === null ? "" : Number(s.fastest.toFixed(1)),
+          ]),
+        ];
+        const hourTable = () => [
+          ["ช่วงเวลา", "รอบทั้งหมด", "แก้สำเร็จ", "ไม่สำเร็จ"],
+          ...hourBuckets(view.games).map((b) => [pad2(b.h) + ":00–" + pad2(b.h) + ":59", b.a + b.b, b.a, b.b]),
+        ];
+
+        const stamp = () => new Date().toISOString().slice(0, 10);
+        function saveBlob(blob, filename) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          document.body.append(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+        function saveCsv(rows, name) {
+          const text = "﻿" + rows.map((r) => r.map((v) => '"' + String(v ?? "").replace(/"/g, '""') + '"').join(",")).join("\r\n");
+          saveBlob(new Blob([text], { type: "text/csv;charset=utf-8" }), `${name}-${stamp()}.csv`);
+        }
+        function saveXlsx(sheets, name) {
+          if (!window.XLSX) {
+            $("exportNote").textContent = "โหลดตัวสร้างไฟล์ Excel ไม่ได้ (ต้องต่ออินเทอร์เน็ต) ใช้ปุ่ม CSV แทน";
+            return;
+          }
+          const wb = XLSX.utils.book_new();
+          for (const [title, rows] of sheets) {
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            // Column widths from the longest value, so the file opens readable.
+            ws["!cols"] = rows[0]
+              ? Array.from({ length: Math.max(...rows.map((r) => r.length)) }, (_, c) => ({
+                  wch: Math.min(40, Math.max(8, ...rows.slice(0, 200).map((r) => String(r[c] ?? "").length + 2))),
+                }))
+              : [];
+            XLSX.utils.book_append_sheet(wb, ws, title);
+          }
+          XLSX.writeFile(wb, `${name}-${stamp()}.xlsx`);
+        }
+        $("exAll").onclick = () =>
+          saveXlsx(
+            [
+              ["สรุป", summaryTable()],
+              ["รายคน", table("people")],
+              ["รายเกม", table("games")],
+              ["แยกตามด่าน", levelTable()],
+              ["รายชั่วโมง", hourTable()],
+            ],
+            "solar-sprint-report",
+          );
+        $("exPeopleX").onclick = () => saveXlsx([["รายคน", table("people")]], "solar-sprint-players");
+        $("exPeopleC").onclick = () => saveCsv(table("people"), "solar-sprint-players");
+        $("exGamesX").onclick = () => saveXlsx([["รายเกม", table("games")]], "solar-sprint-games");
+        $("exGamesC").onclick = () => saveCsv(table("games"), "solar-sprint-games");
+
+        // ---------- wiring ----------
+        $("listTable").addEventListener("click", (e) => {
+          const th = e.target.closest("th[data-sort]");
+          if (!th) return;
+          const s = sort[list];
+          sort[list] = { k: th.dataset.sort, dir: s.k === th.dataset.sort ? -s.dir : -1 };
+          page = 0;
+          drawList();
+        });
+        $("prev").onclick = () => {
+          page--;
+          drawList();
+        };
+        $("next").onclick = () => {
+          page++;
+          drawList();
+        };
+        $("listTabs").addEventListener("click", (e) => {
+          const b = e.target.closest("button[data-list]");
+          if (!b) return;
+          list = b.dataset.list;
+          page = 0;
+          for (const x of $("listTabs").children) x.setAttribute("aria-selected", String(x === b));
+          drawList();
+        });
+        $("timeTabs").addEventListener("click", (e) => {
+          const b = e.target.closest("button[data-mode]");
+          if (!b) return;
+          timeMode = b.dataset.mode;
+          for (const x of $("timeTabs").children) x.setAttribute("aria-selected", String(x === b));
+          renderTime(view.games);
+        });
+        const FILTERS = ["fFrom", "fTo", "fHour", "fHome", "fResult", "fClaim", "fMin", "fMax", "fText", "fBest"];
+        for (const id of FILTERS)
+          $(id).addEventListener("input", () => {
+            page = 0;
+            render();
+          });
+        $("reset").onclick = () => {
+          for (const id of FILTERS) $(id).type === "checkbox" ? ($(id).checked = false) : ($(id).value = "");
+          page = 0;
+          render();
+        };
+        $("reload").onclick = load;
+        $("auto").onchange = scheduleAuto;
+        $("print").onclick = () => window.print();
+
+        // Hover tooltip for every chart mark (data-tip).
+        const tip = $("tip");
+        document.addEventListener("pointermove", (e) => {
+          const t = e.target.closest?.("[data-tip]");
+          if (!t) {
+            tip.classList.add("hidden");
+            return;
+          }
+          tip.innerHTML = esc(t.dataset.tip).replace(/\n/g, "<br>");
+          tip.classList.remove("hidden");
+          tip.style.left = Math.min(window.innerWidth - tip.offsetWidth - 8, e.clientX + 12) + "px";
+          tip.style.top = Math.max(8, e.clientY - tip.offsetHeight - 12) + "px";
+        });
+
+        load();
+      })();
+    </script>
+  </body>
+</html>
