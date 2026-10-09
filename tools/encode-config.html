@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Encode Config</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f8fa;
+        --surface: #ffffff;
+        --line: #dde7ec;
+        --ink: #193850;
+        --muted: #6b8090;
+        --accent: #076eaa;
+        --good: #00885e;
+        --bad: #b2394f;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          color-scheme: dark;
+          --bg: #10161b;
+          --surface: #1a2229;
+          --line: #2e3a44;
+          --ink: #eef3f6;
+          --muted: #8a9ba8;
+          --accent: #5aa9e0;
+          --good: #3fbf8f;
+          --bad: #e66767;
+        }
+      }
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #10161b;
+        --surface: #1a2229;
+        --line: #2e3a44;
+        --ink: #eef3f6;
+        --muted: #8a9ba8;
+        --accent: #5aa9e0;
+        --good: #3fbf8f;
+        --bad: #e66767;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font: 14px/1.6 Tahoma, "Segoe UI", sans-serif;
+      }
+      main {
+        max-width: 640px;
+        margin: 40px auto;
+        padding: 0 16px;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 20px;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 4px;
+      }
+      p {
+        margin: 0 0 16px;
+        color: var(--muted);
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-bottom: 12px;
+        font-size: 13px;
+      }
+      input,
+      textarea {
+        font: inherit;
+        color: inherit;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 10px;
+        width: 100%;
+      }
+      textarea {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 12px;
+        min-height: 90px;
+        resize: vertical;
+        word-break: break-all;
+      }
+      button {
+        font: inherit;
+        border: 0;
+        border-radius: 8px;
+        padding: 9px 16px;
+        background: var(--accent);
+        color: #fff;
+        cursor: pointer;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+      .msg {
+        font-size: 13px;
+        min-height: 1.6em;
+      }
+      .ok {
+        color: var(--good);
+      }
+      .err {
+        color: var(--bad);
+      }
+      code {
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 1px 5px;
+        font-size: 12px;
+      }
+      ol {
+        padding-left: 20px;
+        margin: 16px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="card">
+        <h1>เข้ารหัสลิงก์ Google Sheet</h1>
+        <p>ใช้เฉพาะเครื่องทีมงาน ไม่ต้องคัดลอกไฟล์นี้ไปเครื่องบูธ</p>
+        <label
+          >Web app URL (ลงท้ายด้วย /exec)<input
+            id="apiUrl"
+            placeholder="https://script.google.com/macros/s/…/exec"
+            autocomplete="off"
+        /></label>
+        <label
+          >รหัสเครื่องบูธ (KIOSK_KEY ใน Code.gs)<input id="kioskKey" autocomplete="off"
+        /></label>
+        <label
+          >ลิงก์เกมสำหรับมือถือ (ไม่ใส่ก็ได้)<input id="playUrl" autocomplete="off"
+        /></label>
+        <div class="row">
+          <button id="encode">เข้ารหัส</button>
+        </div>
+        <label>ค่าที่ได้ (นำไปวางใน index.html และ result.html)<textarea id="out" readonly></textarea></label>
+        <div class="row">
+          <button id="copy">คัดลอก</button>
+        </div>
+        <div class="msg" id="msg" role="status"></div>
+        <ol>
+          <li>เปิด index.html ด้วยโปรแกรมแก้ไขโค้ด แล้วค้นหาคำว่า <code>const REMOTE_SECRET = "";</code></li>
+          <li>วางค่าที่ได้ไว้ระหว่างเครื่องหมายคำพูด เช่น <code>const REMOTE_SECRET = "ค่าที่ได้";</code></li>
+          <li>ทำแบบเดียวกันใน result.html (หน้า Export/Report สำหรับทีมงาน)</li>
+          <li>บันทึกไฟล์ แล้วคัดลอก index.html ไปทุกเครื่องในบูธ (result.html เก็บไว้ที่เครื่องทีมงาน)</li>
+        </ol>
+      </div>
+    </main>
+    <script>
+      // Must match SECRET_SALT and decodeSecret() in index.html.
+      const SECRET_SALT = "rma-solar-sprint";
+      const $ = (id) => document.getElementById(id);
+      function encodeSecret(obj) {
+        const bytes = new TextEncoder().encode(JSON.stringify(obj));
+        let bin = "";
+        bytes.forEach((b, i) => {
+          bin += String.fromCharCode(b ^ SECRET_SALT.charCodeAt(i % SECRET_SALT.length));
+        });
+        return btoa(bin).split("").reverse().join("");
+      }
+      function decodeSecret(secret) {
+        const bin = atob(secret.split("").reverse().join(""));
+        const bytes = Uint8Array.from(bin, (c, i) => c.charCodeAt(0) ^ SECRET_SALT.charCodeAt(i % SECRET_SALT.length));
+        return JSON.parse(new TextDecoder().decode(bytes));
+      }
+      function say(text, ok) {
+        $("msg").textContent = text;
+        $("msg").className = "msg " + (ok ? "ok" : "err");
+      }
+      $("encode").onclick = () => {
+        const cfg = {
+          apiUrl: $("apiUrl").value.trim(),
+          kioskKey: $("kioskKey").value.trim(),
+          playUrl: $("playUrl").value.trim(),
+        };
+        if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(cfg.apiUrl)) {
+          say("Web app URL ต้องขึ้นต้นด้วย https://script.google.com/ และลงท้ายด้วย /exec", false);
+          return;
+        }
+        const secret = encodeSecret(cfg);
+        // Round-trip check so a bad value never reaches the booth.
+        if (JSON.stringify(decodeSecret(secret)) !== JSON.stringify(cfg)) {
+          say("เข้ารหัสไม่สำเร็จ ลองใหม่อีกครั้ง", false);
+          return;
+        }
+        $("out").value = secret;
+        say("✓ เข้ารหัสแล้ว กดคัดลอกแล้วนำไปวางใน index.html", true);
+      };
+      $("copy").onclick = async () => {
+        if (!$("out").value) return;
+        try {
+          await navigator.clipboard.writeText($("out").value);
+          say("✓ คัดลอกแล้ว", true);
+        } catch {
+          $("out").select();
+          say("เลือกข้อความให้แล้ว กด Ctrl+C / ⌘+C เพื่อคัดลอก", true);
+        }
+      };
+    </script>
+  </body>
+</html>
