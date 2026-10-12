@@ -4662,6 +4662,32 @@
       .fit .tv-level .tv-row {
         grid-template-columns: 48px 1fr auto;
       }
+      /* v14 touch: no text selection, long-press menu, image drag or double-tap zoom on the game screen.
+         iPhone Safari needs the -webkit- versions; without them a long press selects text, opens a menu
+         and cancels the drag. */
+      body.in-game #game,
+      .panel-choice,
+      .iso-roof,
+      .drag-preview,
+      .hand {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      body.in-game #game img,
+      body.in-game #game svg {
+        -webkit-user-drag: none;
+      }
+      body.in-game #game {
+        touch-action: manipulation;
+      }
+      body.in-game .iso-stage,
+      body.in-game .iso-roof,
+      body.in-game #panelTypes,
+      body.in-game .panel-choice {
+        touch-action: none;
+      }
       /* v13 phone portrait: the game screen fits one screen with no scrolling, and the roof takes the space left over. */
       @media (max-width: 600px) and (orientation: portrait) {
         body.in-game {
@@ -9450,6 +9476,23 @@
           }
         });
         document.addEventListener("pointercancel", clearDrag);
+        // While playing: no right-click / long-press menu anywhere on the page.
+        document.addEventListener("contextmenu", (e) => {
+          if (document.body.classList.contains("in-game") || drag) e.preventDefault();
+        });
+        // iPhone Safari can still scroll or bounce the page under a dragged panel (and then cancel the drag);
+        // a non-passive touchmove that is cancelled during a drag stops that. Taps are untouched.
+        document.addEventListener(
+          "touchmove",
+          (e) => {
+            if (drag) e.preventDefault();
+          },
+          { passive: false },
+        );
+        // A long press on iPhone starts a text selection even with CSS off; block it on the game screen.
+        document.addEventListener("selectstart", (e) => {
+          if (document.body.classList.contains("in-game")) e.preventDefault();
+        });
         window.addEventListener("resize", () => {
           stageViewBox();
           hideGhost();
