@@ -4662,6 +4662,240 @@
       .fit .tv-level .tv-row {
         grid-template-columns: 48px 1fr auto;
       }
+      /* v13 phone portrait: the game screen fits one screen with no scrolling, and the roof takes the space left over. */
+      @media (max-width: 600px) and (orientation: portrait) {
+        body.in-game {
+          overflow: hidden;
+          overscroll-behavior: none;
+        }
+        body.in-game .topbar {
+          height: 48px;
+          padding: 0 12px;
+        }
+        body.in-game .brand img,
+        body.in-game .brand svg {
+          max-height: 30px;
+          width: auto;
+        }
+        body.in-game .header-right {
+          gap: 8px;
+        }
+        body.in-game footer {
+          display: none;
+        }
+        body.in-game main {
+          padding: 6px 10px 8px;
+          min-height: 0;
+        }
+        body.in-game #game {
+          height: calc(100dvh - 48px - 14px);
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          animation: none;
+        }
+        body.in-game .game-heading {
+          margin: 0;
+          align-items: center;
+          gap: 8px;
+        }
+        body.in-game .game-heading .eyebrow,
+        body.in-game #homeDescription {
+          display: none;
+        }
+        body.in-game #gameTitle {
+          font-size: 17px;
+          margin: 0;
+          line-height: 1.3;
+        }
+        body.in-game #backBtn {
+          padding: 6px 10px;
+          font-size: 11px;
+          flex: none;
+        }
+        body.in-game .game-layout {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          margin: 0;
+        }
+        body.in-game .score-panel {
+          order: 0;
+          flex: none;
+          display: grid;
+          grid-template-columns: auto 1fr auto;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 10px;
+          border-radius: 14px;
+        }
+        body.in-game .score-panel .timer {
+          padding: 0;
+          min-width: 0;
+        }
+        body.in-game .score-panel .timer b {
+          font-size: 26px;
+          line-height: 1;
+        }
+        body.in-game .score-panel .timer > span {
+          font-size: 10px;
+        }
+        body.in-game .timer-track {
+          margin-top: 4px;
+        }
+        body.in-game .power-card {
+          padding: 6px 10px;
+          margin: 0;
+        }
+        body.in-game .power-card .section-kicker {
+          display: none;
+        }
+        body.in-game .power-value b {
+          font-size: 22px;
+        }
+        body.in-game .power-track {
+          margin: 4px 0 2px;
+        }
+        body.in-game .power-caption {
+          display: flex;
+          justify-content: space-between;
+          gap: 6px;
+          font-size: 10px;
+        }
+        /* Practice has no timer or finish button: the power card takes the whole row. */
+        body.in-game.tutorial-mode .score-panel {
+          grid-template-columns: 1fr;
+        }
+        body.in-game .panel-choice b {
+          font-size: 13px;
+          line-height: 1.25;
+        }
+        body.in-game #finishBtn {
+          padding: 10px 12px;
+          font-size: 12px;
+          min-height: 44px;
+          margin: 0;
+        }
+        body.in-game .finish-note,
+        body.in-game .prize-preview,
+        body.in-game .bonus-header,
+        body.in-game .bonus-row {
+          display: none;
+        }
+        body.in-game .roof-area {
+          order: 1;
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          padding: 6px;
+          margin: 0;
+        }
+        body.in-game .roof-topline,
+        body.in-game .stage-badge {
+          display: none;
+        }
+        body.in-game .iso-stage {
+          flex: 1;
+          min-height: 0;
+          height: auto;
+          margin: 0;
+        }
+        body.in-game #roofGrid {
+          width: 100%;
+          height: 100%;
+          max-height: none;
+        }
+        body.in-game .roof-legend {
+          margin: 2px 0 0;
+          font-size: 10px;
+        }
+        body.in-game #feedback {
+          margin: 2px auto 0;
+          font-size: 12px;
+          min-height: 0;
+          max-width: 100%;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        body.in-game .coach {
+          margin: 0 0 4px;
+          padding: 8px 12px;
+        }
+        body.in-game .coach p {
+          font-size: 12px;
+          margin: 2px 0 0;
+        }
+        body.in-game .panel-tray {
+          order: 2;
+          flex: none;
+          padding: 8px;
+          gap: 6px;
+          margin: 0;
+        }
+        body.in-game #panelTypes {
+          gap: 6px;
+        }
+        body.in-game .panel-choice {
+          min-height: 0;
+          padding: 6px 6px 7px;
+        }
+        body.in-game .panel-choice b,
+        body.in-game .panel-choice strong {
+          font-size: 14px;
+        }
+        body.in-game #rotateBtn,
+        body.in-game .tray-actions .secondary {
+          min-height: 44px;
+        }
+      }
+      /* Phones held sideways are too short for the game: ask for portrait instead of shrinking it to an unreadable size. */
+      .rotate-hint {
+        display: none;
+      }
+      @media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+        .rotate-hint {
+          position: fixed;
+          inset: 0;
+          z-index: 100;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 14px;
+          padding: 24px;
+          text-align: center;
+          background: #0b2d49;
+          color: #fff;
+          font-size: 18px;
+        }
+        .rotate-hint span {
+          font-size: 54px;
+          animation: rotateHint 1.8s ease-in-out infinite;
+        }
+        .rotate-hint small {
+          color: #a7c7c9;
+          font-size: 13px;
+        }
+      }
+      @keyframes rotateHint {
+        0%,
+        20% {
+          transform: rotate(-90deg);
+        }
+        60%,
+        100% {
+          transform: rotate(0deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .rotate-hint span {
+          animation: none;
+        }
+      }
     </style>
   </head>
   <body>
@@ -5029,6 +5263,11 @@
       </div>
     </div>
     <div id="dragPreview" class="drag-preview hidden" aria-hidden="true"></div>
+    <div class="rotate-hint" role="alert">
+      <span aria-hidden="true">📱</span>
+      <b>กรุณาหมุนมือถือเป็นแนวตั้ง</b>
+      <small>เกมนี้ออกแบบให้เล่นบนมือถือแนวตั้ง</small>
+    </div>
     <div id="hand" class="hand hidden" aria-hidden="true">
       <span class="hand-chip"></span
       ><svg class="hand-icon" viewBox="0 0 40 48">
@@ -8180,6 +8419,8 @@
           "Google Sheet: ยังไม่ได้ใส่ลิงก์ในโค้ด (เก็บข้อมูลเฉพาะเครื่องนี้)":
             "Google Sheet: no link in the code yet (data stays on this machine)",
           ทดสอบการเชื่อมต่อ: "Test connection",
+          กรุณาหมุนมือถือเป็นแนวตั้ง: "Please turn your phone upright",
+          เกมนี้ออกแบบให้เล่นบนมือถือแนวตั้ง: "This game is made for a phone held upright",
           "ยกเลิกการเชื่อม Google Sheet แล้ว": "Google Sheet disconnected",
           "รวมข้อมูลทุกเครื่องใน Google Sheet (ไม่บังคับ)":
             "Collect every machine in one Google Sheet (optional)",
@@ -8765,6 +9006,7 @@
           for (const id of ["welcome", "game", "result", "tv"])
             $(id).classList.toggle("hidden", id !== view);
           document.body.classList.toggle("tutorial-mode", view === "game" && mode === "tutorial");
+          document.body.classList.toggle("in-game", view === "game");
           window.scrollTo({ top: 0, behavior: "instant" });
         }
         function homes() {
@@ -9086,9 +9328,42 @@
           const p = cellAt(local.x, local.y);
           return p;
         }
+        // On touch screens the drop point sits above the fingertip, so the finger never hides where the panel will land.
+        const TOUCH_LIFT = 72;
+        const aimPoint = (e) =>
+          drag?.touch
+            ? { clientX: e.clientX, clientY: e.clientY - TOUCH_LIFT }
+            : { clientX: e.clientX, clientY: e.clientY };
+        // Roof position under a screen point in cell units, with fractions (not limited to the grid).
+        function roofPoint(e) {
+          const svg = $("roofGrid"),
+            matrix = svg.getScreenCTM();
+          if (!matrix) return null;
+          const point = svg.createSVGPoint();
+          point.x = e.clientX;
+          point.y = e.clientY;
+          const local = point.matrixTransform(matrix.inverse());
+          return unproject(local.x, local.y);
+        }
         function dragPosition(e) {
-          const p = positionAt(e);
-          return p ? { x: p.x - (drag?.offsetX || 0), y: p.y - (drag?.offsetY || 0) } : null;
+          const aim = aimPoint(e);
+          const f = roofPoint(aim);
+          if (!f) return null;
+          if (drag?.id && !drag.touch) {
+            // With a mouse, moving a placed panel keeps the grab point at the same spot on the panel.
+            const { w, h } = dimensions(drag.type, drag.rotated);
+            const x = Math.floor(f.x) - drag.offsetX,
+              y = Math.floor(f.y) - drag.offsetY;
+            return x >= 0 && y >= 0 && x + w <= SIZE && y + h <= SIZE ? { x, y } : null;
+          }
+          // A new panel, or any panel moved with a finger, is centred on the drop point above the fingertip
+          // (so the finger never covers it) and nudged back inside the roof near the edges.
+          if (f.x < -0.6 || f.y < -0.6 || f.x > SIZE + 0.6 || f.y > SIZE + 0.6) return null;
+          const { w, h } = dimensions(drag.type, drag.rotated);
+          return {
+            x: Math.max(0, Math.min(SIZE - w, Math.round(f.x - w / 2))),
+            y: Math.max(0, Math.min(SIZE - h, Math.round(f.y - h / 2))),
+          };
         }
         function preview(p, id = null) {
           hover = p;
@@ -9110,15 +9385,20 @@
           removeMode = false;
           $("removeBtn").classList.remove("active");
           $("hand").classList.add("paused");
+          const touch = e.pointerType === "touch" || e.pointerType === "pen";
+          const grab = existing
+            ? roofPoint({ clientX: e.clientX, clientY: e.clientY - (touch ? TOUCH_LIFT : 0) })
+            : null;
           drag = {
             type,
             rotated: existing?.rotated ?? rotated,
             id: existing?.id ?? null,
             startX: e.clientX,
             startY: e.clientY,
+            touch,
             moved: false,
-            offsetX: existing ? (positionAt(e)?.x ?? existing.x) - existing.x : 0,
-            offsetY: existing ? (positionAt(e)?.y ?? existing.y) - existing.y : 0,
+            offsetX: grab ? Math.floor(grab.x) - existing.x : 0,
+            offsetY: grab ? Math.floor(grab.y) - existing.y : 0,
           };
           if (!existing) tray();
           e.preventDefault();
@@ -9132,11 +9412,12 @@
             e.preventDefault();
             const d = $("dragPreview");
             const { w, h } = dimensions(drag.type, drag.rotated);
-            d.className = "drag-preview";
-            d.innerHTML = renderDragArt(w, h);
-            d.style.left = e.clientX + "px";
-            d.style.top = e.clientY + "px";
             const pos = dragPosition(e);
+            // With a finger, the ghost on the roof is the preview; the floating panel only shows off the roof.
+            d.className = "drag-preview" + (drag.touch ? " touch" : "") + (drag.touch && pos ? " hidden" : "");
+            d.innerHTML = renderDragArt(w, h);
+            d.style.left = aimPoint(e).clientX + "px";
+            d.style.top = aimPoint(e).clientY + "px";
             if (pos) preview({ ...pos, type: drag.type, rotated: drag.rotated }, drag.id);
             else hideGhost();
           },
