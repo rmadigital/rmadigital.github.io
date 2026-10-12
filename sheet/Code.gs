@@ -12,8 +12,8 @@
 // ===== ตั้งค่า =====
 // รหัสเครื่องบูธ: ใส่ให้ตรงกับช่อง "รหัสเครื่องบูธ (KIOSK_KEY)" ในเกม ใช้ตอนตรวจสิทธิ์/มอบรางวัล
 const KIOSK_KEY = "1234";
-// 1 เบอร์เล่นได้กี่รอบ (0 = ไม่จำกัด)
-const ROUNDS_PER_PHONE = 0;
+// 1 เบอร์เล่นได้กี่รอบ (0 = ไม่จำกัด) · นับเฉพาะรอบจริง ไม่นับโหมดฝึก
+const ROUNDS_PER_PHONE = 1;
 // =====================
 
 const MAX_TOTAL = 1900; // คะแนนสูงสุดที่เป็นไปได้: แก้สำเร็จ 1000 + เวลาเหลือ 45 วิ × 20
@@ -121,6 +121,8 @@ function register(req, kiosk) {
   const now = new Date();
   if (found) {
     const r = found.row;
+    // เบอร์ที่เล่นครบสิทธิ์แล้ว ลงชื่อใหม่ไม่ได้ ไม่ว่าจากเครื่องไหน
+    if (roundsLeft(r) <= 0) throw fail("already_played", "เบอร์นี้ได้ทำการเล่นไปแล้ว ไม่สามารถเล่นได้อีก");
     // เบอร์ที่ลงทะเบียนแล้ว: เครื่องบูธ หรือเครื่องเดิมที่มี token เดิม กลับมาเล่นต่อได้
     if (!kiosk && String(req.token || "") !== String(r[P.token]))
       throw fail("phone_taken", "เบอร์นี้ลงทะเบียนไปแล้ว ถ้าเป็นเบอร์ของคุณ ติดต่อทีมงานที่บูธ");
@@ -136,7 +138,7 @@ function register(req, kiosk) {
 function start(req) {
   const sh = sheet(PLAYERS, PLAYER_HEAD);
   const found = byToken(sh, req.token);
-  if (roundsLeft(found.row) <= 0) throw fail("no_rounds_left", "เบอร์นี้ใช้สิทธิ์เล่นครบแล้ว แสดงรหัสรับรางวัลกับทีมงานได้เลย");
+  if (roundsLeft(found.row) <= 0) throw fail("no_rounds_left", "เบอร์นี้ได้ทำการเล่นไปแล้ว ไม่สามารถเล่นได้อีก");
   const played = Number(found.row[P.played]) || 0;
   sh.getRange(found.index, P.played + 1).setValue(played + 1);
   found.row[P.played] = played + 1;
