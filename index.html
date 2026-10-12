@@ -4662,6 +4662,59 @@
       .fit .tv-level .tv-row {
         grid-template-columns: 48px 1fr auto;
       }
+      /* v15: loading overlay and the skip-practice box */
+      .loading {
+        position: fixed;
+        inset: 0;
+        z-index: 90;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0b2d4966;
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+      }
+      .loading-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        padding: 26px 34px;
+        border-radius: 18px;
+        background: #fff;
+        color: var(--navy);
+        font-size: 17px;
+        box-shadow: 0 18px 40px #0b2d4940;
+      }
+      .loading-spin {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        border: 4px solid #d8eef0;
+        border-top-color: var(--blue);
+        animation: loadingSpin 0.8s linear infinite;
+      }
+      @keyframes loadingSpin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .loading-spin {
+          animation-duration: 2.4s;
+        }
+      }
+      .register-dialog .skip-practice {
+        margin-top: 6px;
+        padding: 10px 12px;
+        border: 1px dashed #b9d3dc;
+        border-radius: 9px;
+        background: #f6fafb;
+      }
+      .register-dialog .skip-practice span {
+        font-weight: bold;
+        color: var(--navy);
+      }
       /* v14 touch: no text selection, long-press menu, image drag or double-tap zoom on the game screen.
          iPhone Safari needs the -webkit- versions; without them a long press selects text, opens a menu
          and cancels the drag. */
@@ -5219,6 +5272,9 @@
               เก็บชื่อและเบอร์โทรเพื่อจัดอันดับคะแนนและติดต่อเรื่องรางวัลของกิจกรรมนี้
               บนตารางคะแนนจะแสดงเบอร์แบบซ่อนบางส่วน</span
             ></label
+          ><label class="consent skip-practice" id="regSkipRow"
+            ><input type="checkbox" id="regSkip" />
+            <span>ข้ามโหมดฝึก เข้าเกมจริงเลย</span></label
           >
         </div>
         <div id="regError" class="reg-error" role="alert"></div>
@@ -5289,6 +5345,9 @@
       </div>
     </div>
     <div id="dragPreview" class="drag-preview hidden" aria-hidden="true"></div>
+    <div id="loading" class="loading hidden" role="status" aria-live="polite">
+      <div class="loading-card"><i class="loading-spin" aria-hidden="true"></i><b id="loadingText">กำลังโหลด…</b></div>
+    </div>
     <div class="rotate-hint" role="alert">
       <span aria-hidden="true">📱</span>
       <b>กรุณาหมุนมือถือเป็นแนวตั้ง</b>
@@ -8557,6 +8616,14 @@
             "I agree that RMA Energy may keep my name and phone number to rank scores and contact me about prizes for this activity. The scoreboard shows a partly hidden number.",
           ยกเลิก: "Cancel",
           ยืนยันและเริ่มฝึก: "Confirm and start practice",
+          ยืนยันและเริ่มเกม: "Confirm and start the game",
+          "ข้ามโหมดฝึก เข้าเกมจริงเลย": "Skip practice, go straight to the game",
+          "กำลังสุ่มด่าน…": "Drawing a level…",
+          "กำลังโหลด…": "Loading…",
+          "พลังงานครบแล้ว! กำลังสรุปคะแนน…": "Fully powered! Adding up your score…",
+          "กำลังสรุปคะแนน…": "Adding up your score…",
+          "ใช้แผงครบแล้ว แต่ยังมีแผงโดนเงา ลองย้ายแผงออกจากเงา":
+            "All panels are on the roof, but some are in shade. Move them out of the shade.",
           "สแกน QR ลงทะเบียนใน LINE": "Scan the QR to register in LINE",
           ลงชื่อก่อนเริ่มภารกิจ: "Check in before your mission",
           "รหัสเล่นเกมมี 4 หลัก ดูได้ในแชต LINE":
@@ -9234,12 +9301,18 @@
           $("undoBtn").disabled = !history.length || !running;
           if (passed && !hasReached) {
             hasReached = true;
-            if (mode === "play") {
-              feedback("พลังงานครบแล้ว! กดจบเพื่อเก็บโบนัสเวลา หรือจัดแผงต่อ", "success");
-              brandPop("พลังงานครบแล้ว!", "กดจบเพื่อเก็บโบนัสเวลา หรือจัดแผงต่อ");
-            }
+            // Every level's target is all its panels in full sun, so reaching it means the roof is done: end the round.
+            if (mode === "play" && running) completeRound();
           }
           if (!passed) hasReached = false;
+          // All panels are on the roof but some sit in shade: say so, since there is nothing left to add.
+          if (
+            !passed &&
+            mode === "play" &&
+            running &&
+            Object.keys(home.inventory).every((t) => available(t, panels, home) <= 0)
+          )
+            feedback("ใช้แผงครบแล้ว แต่ยังมีแผงโดนเงา ลองย้ายแผงออกจากเงา", "error");
         }
         function tutorialAllows(p, movingId) {
           const s = TUTORIAL[coachStep];
@@ -9528,6 +9601,7 @@
         }
         function stop() {
           running = false;
+          clearTimeout(autoFinishTimer);
           countdownToken++;
           clearInterval(timer);
           clearDrag();
@@ -9557,6 +9631,14 @@
           if (!$("game").classList.contains("hidden")) feedback(msg, "warn");
           else alert(translate(msg));
         }
+        // Full-screen "please wait" while the Google Sheet answers, so the game never looks frozen.
+        function showLoading(text) {
+          $("loadingText").textContent = text;
+          $("loading").classList.remove("hidden");
+        }
+        function hideLoading() {
+          $("loading").classList.add("hidden");
+        }
         async function start() {
           if (!player) {
             openRegister(start);
@@ -9570,6 +9652,7 @@
               return;
             }
             starting = true;
+            showLoading("กำลังสุ่มด่าน…");
             try {
               const r = await remoteCall(settings(), {
                 action: "start",
@@ -9585,6 +9668,7 @@
               return;
             } finally {
               starting = false;
+              hideLoading();
             }
           }
           begin(level);
@@ -9836,9 +9920,19 @@
             return null;
           }
         };
-        function finish() {
-          if (!running || mode !== "play") return;
+        // The clock stops the moment the last panel lands; the result follows after a short beat so the player sees it land.
+        let autoFinishTimer = 0;
+        function completeRound() {
           remaining = getRemaining();
+          stop();
+          $("timeValue").innerHTML = Math.ceil(remaining) + "<span>วิ</span>";
+          feedback("พลังงานครบแล้ว! กำลังสรุปคะแนน…", "success");
+          brandPop("พลังงานครบแล้ว!", "กำลังสรุปคะแนน…");
+          autoFinishTimer = setTimeout(() => finish(true), 1100);
+        }
+        function finish(completed = false) {
+          if ((!running && !completed) || mode !== "play") return;
+          if (!completed) remaining = getRemaining();
           stop();
           hideBrandPop();
           const stats = score(panels, home, remaining),
@@ -10142,13 +10236,22 @@
           $("regForm").reset();
           $("regError").textContent = "";
           $("regOnline").classList.toggle("hidden", !remoteOn(settings()));
+          // The skip box only makes sense when check-in leads into practice.
+          $("regSkipRow").classList.toggle("hidden", next !== startTutorial);
+          syncRegSubmit();
           $("registerDialog").showModal();
           setTimeout(() => $("regName").focus(), 50);
         }
+        function syncRegSubmit() {
+          const skip = $("regSkip").checked && afterRegister === startTutorial;
+          // Thai in the DOM; the language switch translates it when English is on.
+          $("regSubmit").innerHTML = (skip ? "ยืนยันและเริ่มเกม" : "ยืนยันและเริ่มฝึก") + " <span>→</span>";
+        }
+        $("regSkip").addEventListener("change", syncRegSubmit);
         function startPlayer(p) {
           player = p;
           $("registerDialog").close();
-          const next = afterRegister;
+          const next = afterRegister === startTutorial && $("regSkip").checked ? start : afterRegister;
           afterRegister = null;
           next?.();
         }
