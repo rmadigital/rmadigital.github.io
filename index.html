@@ -4662,6 +4662,11 @@
       .fit .tv-level .tv-row {
         grid-template-columns: 48px 1fr auto;
       }
+      .staff a.secondary {
+        display: inline-flex;
+        align-items: center;
+        text-decoration: none;
+      }
       /* v15: loading overlay and the skip-practice box */
       .loading {
         position: fixed;
@@ -5325,14 +5330,11 @@
           </p>
         </div>
         <p class="muted">
-          รายชื่อผู้เล่นมีชื่อและเบอร์โทรเต็มของทุกคนที่ลงชื่อในเครื่องนี้
-          ใช้ติดต่อลูกค้าและผู้ได้รางวัล ข้อมูลเก็บเฉพาะในเบราว์เซอร์ของเครื่องนี้ ถ้าเชื่อม Google
-          Sheet ไว้ ดูรายชื่อรวมทุกเครื่องได้ในแท็บ Players
+          รายชื่อ เบอร์โทร และคะแนนทั้งหมดอยู่ใน Google Sheet (แท็บ Players และ Rounds) ดูหรือส่งออกได้ที่หน้า
+          result.html
         </p>
         <div class="reg-actions">
-          <button class="secondary" id="exportContacts">⇩ รายชื่อผู้เล่น (CSV)</button
-          ><button class="secondary" id="exportBoard">⇩ คะแนนทุกรอบ (CSV)</button
-          ><button class="secondary danger" id="clearBoard">ลบข้อมูลทั้งหมด</button>
+          <a class="secondary" href="result.html" target="_blank" rel="noopener">📊 เปิดหน้าผลการเล่น / Export</a>
         </div>
       </details>
     </dialog>
@@ -8096,9 +8098,17 @@
             : "ขอบคุณที่ร่วมเล่น! วางแผงให้พลังงานครบเป้าหมายก่อนหมดเวลา เพื่อรับรางวัลที่ 1";
         }
 
-        // Player check-in, contact list and scoreboard. Kept on this device; phones are masked on screen.
-        const BOARD_KEY = "rma-solar-sprint-board-v2",
-          PLAYERS_KEY = "rma-solar-sprint-players-v1";
+        // Phone numbers are never kept on this machine: the Google Sheet decides who has played and holds every score.
+        // Older versions stored names, phones, rounds and tokens here; clear them.
+        try {
+          for (const k of [
+            "rma-solar-sprint-board-v2",
+            "rma-solar-sprint-players-v1",
+            "rma-solar-sprint-started-v1",
+            "rma-solar-sprint-tokens-v1",
+          ])
+            localStorage.removeItem(k);
+        } catch {}
         function normalizePhone(raw) {
           return String(raw ?? "").replace(/\D/g, "");
         }
@@ -8133,159 +8143,11 @@
             (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
           );
         }
-        // Best play per phone number, highest score first; ties go to whoever got there first. Pass a level id to rank that level only.
-        function leaderboard(plays, limit = 10, level = null) {
-          const best = new Map();
-          for (const p of plays) {
-            if (level && p.home !== level) continue;
-            const cur = best.get(p.phone);
-            if (!cur || p.total > cur.total || (p.total === cur.total && p.at < cur.at))
-              best.set(p.phone, p);
-          }
-          return [...best.values()]
-            .sort((a, b) => b.total - a.total || a.at - b.at)
-            .slice(0, limit);
-        }
-        function rankOf(plays, phone, level = null) {
-          const all = leaderboard(plays, Infinity, level);
-          const i = all.findIndex((p) => p.phone === phone);
-          return { rank: i + 1, players: all.length };
-        }
-        const prizeLabel = (id) =>
-          ({ first: "รางวัลที่ 1", consolation: "รางวัลปลอบใจ" })[id] ?? id;
-        const csv = (rows) =>
-          "﻿" +
-          rows
-            .map((r) => r.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(","))
-            .join("\r\n");
-        const thTime = (at) => new Date(at).toLocaleString("th-TH");
-        function toCsv(plays, homes) {
-          const head = ["เวลา", "ชื่อ", "เบอร์โทร", "ด่าน", "คะแนน", "แก้ puzzle สำเร็จ", "รางวัล"];
-          return csv([
-            head,
-            ...plays.map((p) => [
-              thTime(p.at),
-              p.name,
-              formatPhone(p.phone),
-              homes.find((h) => h.id === p.home)?.title ?? p.home,
-              p.total,
-              p.passed ? "ใช่" : "ไม่",
-              prizeLabel(p.prize),
-            ]),
-          ]);
-        }
-        // One row per person who checked in, including people who left before finishing a round.
-        function contactsCsv(players, plays, homes) {
-          const head = [
-            "ชื่อ",
-            "เบอร์โทร",
-            "ลงชื่อครั้งแรก",
-            "ลงชื่อล่าสุด",
-            "จำนวนรอบที่เล่น",
-            "คะแนนดีที่สุด",
-            "ด่านที่ทำคะแนนดีที่สุด",
-            "รางวัล",
-          ];
-          const best = new Map(leaderboard(plays, Infinity).map((p) => [p.phone, p]));
-          const rounds = new Map();
-          for (const p of plays) rounds.set(p.phone, (rounds.get(p.phone) || 0) + 1);
-          const known = new Map(players.map((p) => [p.phone, p]));
-          for (const p of plays)
-            if (!known.has(p.phone))
-              known.set(p.phone, { name: p.name, phone: p.phone, first: p.at, last: p.at });
-          return csv([
-            head,
-            ...[...known.values()]
-              .sort((a, b) => a.first - b.first)
-              .map((p) => {
-                const b = best.get(p.phone);
-                return [
-                  p.name,
-                  formatPhone(p.phone),
-                  thTime(p.first),
-                  thTime(p.last),
-                  rounds.get(p.phone) || 0,
-                  b ? b.total : "",
-                  b ? (homes.find((h) => h.id === b.home)?.title ?? b.home) : "",
-                  b ? prizeLabel(b.prize) : "ยังไม่จบรอบ",
-                ];
-              }),
-          ]);
-        }
-        const readList = (storage, key, ok) => {
-          try {
-            const v = JSON.parse(storage.getItem(key) || "[]");
-            return Array.isArray(v) ? v.filter(ok) : [];
-          } catch {
-            return [];
-          }
-        };
-        function readPlays(storage) {
-          return readList(
-            storage,
-            BOARD_KEY,
-            (p) =>
-              p &&
-              typeof p.total === "number" &&
-              typeof p.phone === "string" &&
-              typeof p.name === "string",
-          );
-        }
-        function writePlays(storage, plays) {
-          try {
-            storage.setItem(BOARD_KEY, JSON.stringify(plays.slice(-3000)));
-            return true;
-          } catch {
-            return false;
-          }
-        }
-        // One real round per phone number. Phones that started a round on this machine are remembered here
-        // (the Google Sheet does the same across machines), so a reload mid-round does not give a second go.
-        const STARTED_KEY = "rma-solar-sprint-started-v1";
-        function hasPlayed(phone) {
-          const s = store();
-          return (
-            readList(s, STARTED_KEY, (p) => typeof p === "string").includes(phone) ||
-            readPlays(s).some((p) => p.phone === phone)
-          );
-        }
-        function markPlayed(phone) {
-          try {
-            const s = store(),
-              list = readList(s, STARTED_KEY, (p) => typeof p === "string");
-            if (!list.includes(phone)) s.setItem(STARTED_KEY, JSON.stringify([...list, phone].slice(-5000)));
-          } catch {}
-        }
-        function readPlayers(storage) {
-          return readList(
-            storage,
-            PLAYERS_KEY,
-            (p) => p && typeof p.phone === "string" && typeof p.name === "string",
-          );
-        }
-        function writePlayers(storage, players) {
-          try {
-            storage.setItem(PLAYERS_KEY, JSON.stringify(players.slice(-5000)));
-            return true;
-          } catch {
-            return false;
-          }
-        }
-        // Same phone again keeps the first check-in time and takes the newest name.
-        function upsertPlayer(players, { name, phone, at }) {
-          const i = players.findIndex((p) => p.phone === phone);
-          if (i < 0) return [...players, { name, phone, first: at, last: at }];
-          const next = players.slice();
-          next[i] = { ...next[i], name, last: at };
-          return next;
-        }
-
         // Online mode: registration, rounds and the shared scoreboard go through the Google Apps Script web app (see sheet/Code.gs).
         // Served by Apps Script itself (players scan the QR), calls go through google.script.run; opened as a file, through fetch to the web app URL.
         const REMOTE_DEFAULTS = { apiUrl: "", kioskKey: "", playUrl: "" };
         const REMOTE_KEY = "rma-solar-sprint-remote-v1",
-          PENDING_KEY = "rma-solar-sprint-pending-v1",
-          TOKENS_KEY = "rma-solar-sprint-tokens-v1";
+          PENDING_KEY = "rma-solar-sprint-pending-v1";
         const appsScript = () => {
           try {
             return typeof google !== "undefined" && google.script && google.script.run
@@ -8428,24 +8290,6 @@
           }
           return { sent, left: list.length };
         }
-        // The registration token for each phone number this device registered; it lets the same device come back to that number.
-        function readTokens(storage) {
-          try {
-            const v = JSON.parse(storage?.getItem(TOKENS_KEY) || "{}");
-            return v && typeof v === "object" ? v : {};
-          } catch {
-            return {};
-          }
-        }
-        function saveToken(storage, phone, token) {
-          try {
-            storage.setItem(TOKENS_KEY, JSON.stringify({ ...readTokens(storage), [phone]: token }));
-            return true;
-          } catch {
-            return false;
-          }
-        }
-
         // English for every Thai string the game shows. Keys are the exact Thai text (trimmed).
         // Patterns: $1 is translated again, @1 is copied as-is (names, numbers, times).
         const EN_TEXT = {
@@ -8491,10 +8335,6 @@
           กรุณาหมุนมือถือเป็นแนวตั้ง: "Please turn your phone upright",
           เกมนี้ออกแบบให้เล่นบนมือถือแนวตั้ง: "This game is made for a phone held upright",
           "📺 เปิดจอ Scoreboard": "📺 Open scoreboard screen",
-          "รายชื่อผู้เล่นมีชื่อและเบอร์โทรเต็มของทุกคนที่ลงชื่อในเครื่องนี้ ใช้ติดต่อลูกค้าและผู้ได้รางวัล ข้อมูลเก็บเฉพาะในเบราว์เซอร์ของเครื่องนี้ ถ้าเชื่อม Google Sheet ไว้ ดูรายชื่อรวมทุกเครื่องได้ในแท็บ Players":
-            "The player list has the name and full phone number of everyone who checked in on this machine, for contacting customers and prize winners. It is kept only in this machine’s browser. With Google Sheet connected, the Players tab lists every machine.",
-          "⇩ รายชื่อผู้เล่น (CSV)": "⇩ Player list (CSV)",
-          "⇩ คะแนนทุกรอบ (CSV)": "⇩ All rounds (CSV)",
           ผู้เข้าแข่งขัน: "Players",
           รอบที่เล่น: "Rounds played",
           // header, welcome
@@ -8575,6 +8415,12 @@
           ยกเลิก: "Cancel",
           ยืนยันและเริ่มฝึก: "Confirm and start practice",
           ยืนยันและเริ่มเกม: "Confirm and start the game",
+          แสดงตารางล่าสุดที่โหลดไว้: "showing the last board loaded",
+          "ยังไม่ได้เชื่อม Google Sheet": "Google Sheet not connected",
+          "ยังไม่ได้เชื่อม Google Sheet คะแนนไม่ถูกบันทึก": "Google Sheet not connected, the score was not saved",
+          "รายชื่อ เบอร์โทร และคะแนนทั้งหมดอยู่ใน Google Sheet (แท็บ Players และ Rounds) ดูหรือส่งออกได้ที่หน้า result.html":
+            "All names, phone numbers and scores are in the Google Sheet (Players and Rounds tabs). View or export them on result.html.",
+          "📊 เปิดหน้าผลการเล่น / Export": "📊 Open results / Export",
           "เบอร์นี้ได้ทำการเล่นไปแล้ว ไม่สามารถเล่นได้อีก": "This number has already played and cannot play again",
           "ข้ามโหมดฝึก เข้าเกมจริงเลย": "Skip practice, go straight to the game",
           "กำลังสุ่มด่าน…": "Drawing a level…",
@@ -8594,7 +8440,6 @@
           "🏆 ตารางคะแนน TOP 10": "🏆 TOP 10 Scoreboard",
           สำหรับทีมงาน: "For staff",
           "รหัสเครื่องบูธ (KIOSK_KEY)": "Booth key (KIOSK_KEY)",
-          ลบข้อมูลทั้งหมด: "Delete all data",
           "ยังไม่มีคะแนน เป็นคนแรกเลย!": "No scores yet. Be the first!",
           ตารางรวมทุกเครื่องในบูธ: "Shared board, all booth machines",
           แสดงคะแนนในเครื่องนี้: "showing this machine's scores",
@@ -8605,11 +8450,6 @@
           "✓ เชื่อมต่อสำเร็จ รหัสเครื่องบูธถูกต้อง": "✓ Connected, booth key is correct",
           "เชื่อมต่อได้ แต่รหัสเครื่องบูธ (KIOSK_KEY) ไม่ตรง":
             "Connected, but the booth key (KIOSK_KEY) does not match",
-          ยังไม่มีข้อมูลให้ส่งออก: "Nothing to export yet",
-          "ส่งออกไม่สำเร็จในหน้านี้ ลองเปิดไฟล์ START-HERE.html แทน":
-            "Export failed on this page. Open START-HERE.html instead.",
-          "ลบรายชื่อและคะแนนทั้งหมดในเครื่องนี้? ควรส่งออก CSV ก่อน ลบแล้วกู้คืนไม่ได้":
-            "Delete every name and score on this machine? Export the CSV first. This cannot be undone.",
           // server and network errors
           เซิร์ฟเวอร์ตอบกลับผิดพลาด: "The server returned an error",
           เชื่อมต่อเซิร์ฟเวอร์ไม่ทัน: "The server took too long to answer",
@@ -8750,9 +8590,6 @@
           "เริ่มภารกิจจริง · สุ่มด่าน": "Start the real mission · random level",
           พลังที่คุณสร้าง: "Power you generated",
           "กำลังส่งคะแนนเข้าตารางรวม…": "Sending your score to the shared board…",
-          "ตารางคะแนนเก็บในเครื่องนี้ แสดงคะแนนดีที่สุดของแต่ละคน":
-            "Scores are kept on this machine, best score per player",
-          เบราว์เซอร์นี้ไม่อนุญาตให้บันทึกคะแนน: "This browser does not allow saving scores",
           ตารางรวมทุกเครื่อง: "Shared board, all machines",
         };
         const EN_PATTERNS = [
@@ -9556,10 +9393,6 @@
             return;
           }
           if (starting) return;
-          if (hasPlayed(player.phone)) {
-            notify("เบอร์นี้ได้ทำการเล่นไปแล้ว ไม่สามารถเล่นได้อีก");
-            return;
-          }
           const level = randomHome();
           if (player.token) {
             if (player.roundsLeft <= 0) {
@@ -9589,7 +9422,6 @@
           begin(level);
         }
         function begin(level) {
-          if (player) markPlayed(player.phone);
           mode = "play";
           picked = level;
           home = picked;
@@ -9853,24 +9685,13 @@
           hideBrandPop();
           const stats = score(panels, home, remaining),
             prize = prizeFor(stats);
-          const me = player || { name: "ผู้เล่น", phone: "0000000000" };
+          const me = player || { name: "ผู้เล่น" };
           const at = Date.now();
-          const plays = readPlays(store());
-          const prevBest = leaderboard(plays, Infinity).find((p) => p.phone === me.phone)?.total;
+          const prevBest = player?.best?.total;
           const record = prevBest !== undefined && stats.total > prevBest,
             online = !!player?.token;
-          plays.push({
-            name: me.name,
-            phone: me.phone,
-            total: stats.total,
-            home: home.id,
-            prize: prize.id,
-            passed: stats.passed,
-            power: Number(stats.power.toFixed(3)),
-            at,
-          });
-          const saved = writePlays(store(), plays);
-          const local = localBoard(plays, 5, me.phone);
+          // Until the Sheet answers, show the last board it sent (the reply to this score replaces it).
+          const local = boardCache || emptyBoard();
           const rows = stats.passed
             ? [
                 ["แก้ puzzle สำเร็จ", stats.base],
@@ -9878,7 +9699,7 @@
               ]
             : [["พลังงานที่ทำได้ (ยังไม่ครบ)", stats.base]];
           $("result").innerHTML =
-            `<div class="result-main prize-${prize.id}"><img class="result-logo" src="${IMG_LOGO}" alt="RMA Energy"><div class="medal award-medal ${prize.id}">${trophyIcon(prize)}</div><div class="eyebrow">${prize.title}</div><div class="award-heading"><span>ผลรางวัลของคุณ</span> <span translate="no">${escapeHtml(me.name)}</span></div><h1 class="earned-prize">${prize.label}</h1><div class="award-message">${awardMessage(stats)}</div><div class="mission-badge ${stats.passed ? "complete" : "incomplete"}">${stats.passed ? "✓ พลังงานครบตามเป้าหมาย" : "พลังงานยังไม่ครบตามเป้าหมาย"}</div><div class="result-subtitle">${stats.passed ? "จัดหลังคาสำเร็จ ขอบคุณที่ช่วยสร้างบ้านพลังงานสะอาด" : home.hint}<br>${home.title} · ${fmt(stats.power)} / ${home.target} kW</div><div class="big-score" id="bigScore">${stats.total.toLocaleString("en-US")}</div><div class="score-unit">TOTAL POINTS</div>${record ? '<span class="record-pill">✧ ทำลายสถิติเดิมของคุณ</span>' : ""}<div class="prize-ticket ${prize.id}"><span>${prize.id === "first" ? "01" : prize.id === "second" ? "02" : "✦"}</span><div><b>${prize.label}</b><small>แสดงหน้าจอนี้ให้ทีมงานรับรางวัลที่บูธ</small></div>${online ? `<em class="ticket-code"><small>รหัสรับรางวัล</small><b translate="no">${escapeHtml(player.code)}</b></em>` : "<i>✓</i>"}</div><div class="result-note">ทีมงานตรวจสอบสิทธิ์และมอบรางวัลจริงตามกติกางาน</div><div class="result-actions"><button class="secondary" id="chooseHome">กลับหน้าแรก</button></div></div><div class="result-side"><h2>พลังที่คุณสร้าง</h2>${rows.map(([label, n]) => `<div class="result-score-row"><span>${label}</span><b>+${n}</b></div>`).join("")}<div class="result-roof"><span>ติดตั้ง ${panels.length} ชุด</span><span>ใช้เวลา ${stats.used.toFixed(1)} วิ</span></div>${prizeCriteria(prize.id)}<div class="leaderboard" id="resultBoard">${resultBoardHtml(local, saved ? (online ? "กำลังส่งคะแนนเข้าตารางรวม…" : "ตารางคะแนนเก็บในเครื่องนี้ แสดงคะแนนดีที่สุดของแต่ละคน") : "เบราว์เซอร์นี้ไม่อนุญาตให้บันทึกคะแนน")}</div></div>`;
+            `<div class="result-main prize-${prize.id}"><img class="result-logo" src="${IMG_LOGO}" alt="RMA Energy"><div class="medal award-medal ${prize.id}">${trophyIcon(prize)}</div><div class="eyebrow">${prize.title}</div><div class="award-heading"><span>ผลรางวัลของคุณ</span> <span translate="no">${escapeHtml(me.name)}</span></div><h1 class="earned-prize">${prize.label}</h1><div class="award-message">${awardMessage(stats)}</div><div class="mission-badge ${stats.passed ? "complete" : "incomplete"}">${stats.passed ? "✓ พลังงานครบตามเป้าหมาย" : "พลังงานยังไม่ครบตามเป้าหมาย"}</div><div class="result-subtitle">${stats.passed ? "จัดหลังคาสำเร็จ ขอบคุณที่ช่วยสร้างบ้านพลังงานสะอาด" : home.hint}<br>${home.title} · ${fmt(stats.power)} / ${home.target} kW</div><div class="big-score" id="bigScore">${stats.total.toLocaleString("en-US")}</div><div class="score-unit">TOTAL POINTS</div>${record ? '<span class="record-pill">✧ ทำลายสถิติเดิมของคุณ</span>' : ""}<div class="prize-ticket ${prize.id}"><span>${prize.id === "first" ? "01" : prize.id === "second" ? "02" : "✦"}</span><div><b>${prize.label}</b><small>แสดงหน้าจอนี้ให้ทีมงานรับรางวัลที่บูธ</small></div>${online ? `<em class="ticket-code"><small>รหัสรับรางวัล</small><b translate="no">${escapeHtml(player.code)}</b></em>` : "<i>✓</i>"}</div><div class="result-note">ทีมงานตรวจสอบสิทธิ์และมอบรางวัลจริงตามกติกางาน</div><div class="result-actions"><button class="secondary" id="chooseHome">กลับหน้าแรก</button></div></div><div class="result-side"><h2>พลังที่คุณสร้าง</h2>${rows.map(([label, n]) => `<div class="result-score-row"><span>${label}</span><b>+${n}</b></div>`).join("")}<div class="result-roof"><span>ติดตั้ง ${panels.length} ชุด</span><span>ใช้เวลา ${stats.used.toFixed(1)} วิ</span></div>${prizeCriteria(prize.id)}<div class="leaderboard" id="resultBoard">${resultBoardHtml(local, online ? "กำลังส่งคะแนนเข้าตารางรวม…" : "ยังไม่ได้เชื่อม Google Sheet คะแนนไม่ถูกบันทึก")}</div></div>`;
           show("result");
           if (online)
             sendScore({
@@ -10006,23 +9827,8 @@
             : '<p class="muted">ยังไม่มีคะแนน เป็นคนแรกเลย!</p>';
         }
         const houseTitle = (id) => HOMES.find((h) => h.id === id)?.title ?? id ?? "";
-        // Board data: one overall ranking (best round per player across every level), counts, and the current player's rank.
-        // Local plays and the shared Sheet both map to this shape.
-        function localBoard(plays, limit = 10, minePhone = null) {
-          const all = rankOf(plays, minePhone);
-          return {
-            rows: leaderboard(plays, limit).map((r) => ({
-              name: r.name,
-              sub: maskPhone(r.phone) + " · " + houseTitle(r.home),
-              total: r.total,
-              mine: !!minePhone && r.phone === minePhone,
-            })),
-            players: all.players,
-            rounds: plays.length,
-            rank: minePhone && all.rank ? all.rank : null,
-            shared: false,
-          };
-        }
+        // Board data: rows {name, sub, total, mine}, counts and the current player's rank. Always from the Google Sheet.
+        const emptyBoard = () => ({ rows: [], players: 0, rounds: 0, rank: null, shared: false });
         function serverBoard(d) {
           const me = d.me || {};
           return {
@@ -10072,7 +9878,7 @@
         // fresh = ask the Sheet even if a board is already known.
         async function boardData(limit = 10, fresh = false) {
           const s = settings();
-          if (!remoteOn(s)) return localBoard(readPlays(store()), limit);
+          if (!remoteOn(s)) return emptyBoard();
           if (boardCache && !fresh) return boardCache;
           // Screens that ask at the same moment share one request.
           boardRequest ??= remoteCall(s, { action: "board" })
@@ -10081,15 +9887,16 @@
           try {
             return await boardRequest;
           } catch (e) {
-            return { ...localBoard(readPlays(store()), limit), offline: e.message };
+            // Can't reach the Sheet: keep showing the last board it sent.
+            return { ...(boardCache || emptyBoard()), offline: e.message };
           }
         }
         function boardNote(d) {
-          return d.shared
-            ? "ตารางรวมทุกเครื่องในบูธ · " + d.players + " คน"
-            : d.offline
-              ? "ออฟไลน์ (" + d.offline + ") · แสดงคะแนนในเครื่องนี้"
-              : "คะแนนในเครื่องนี้ · " + d.players + " คน";
+          return d.offline
+            ? "ออฟไลน์ (" + d.offline + ") · แสดงตารางล่าสุดที่โหลดไว้"
+            : d.shared
+              ? "ตารางรวมทุกเครื่องในบูธ · " + d.players + " คน"
+              : "ยังไม่ได้เชื่อม Google Sheet";
         }
         function resultBoardHtml(d, note) {
           return `<h3>🏆 TOP 5</h3>${d.rank ? `<div class="my-rank">อันดับของคุณ <b>${d.rank}</b> จาก ${d.players} คน</div>` : ""}${boardRows(d.rows.slice(0, 5))}<div class="local-note">${escapeHtml(note)}</div>`;
@@ -10208,11 +10015,6 @@
             restartAnimation($("regError"), "pop");
             $("regPhone").focus();
           };
-          if (hasPlayed(v.phone)) return usedUp();
-          writePlayers(
-            store(),
-            upsertPlayer(readPlayers(store()), { name: v.name, phone: v.phone, at: Date.now() }),
-          );
           const s = settings();
           if (!remoteOn(s)) {
             startPlayer({ name: v.name, phone: v.phone });
@@ -10228,10 +10030,9 @@
               name: v.name,
               phone: v.phone,
               consent: true,
-              token: readTokens(store())[v.phone] || "",
+              token: "",
               device: machineName(),
             });
-            saveToken(store(), v.phone, r.token);
             const p = {
               name: v.name,
               phone: v.phone,
@@ -10240,16 +10041,10 @@
               roundsLeft: r.player.roundsLeft,
               best: r.player.best,
             };
-            if (p.roundsLeft <= 0) {
-              markPlayed(v.phone);
-              return usedUp();
-            }
+            if (p.roundsLeft <= 0) return usedUp();
             startPlayer(p);
           } catch (err) {
-            if (err.code === "already_played" || err.code === "no_rounds_left") {
-              markPlayed(v.phone);
-              return usedUp();
-            }
+            if (err.code === "already_played" || err.code === "no_rounds_left") return usedUp();
             $("regError").textContent = err.message;
             restartAnimation($("regError"), "pop");
           } finally {
@@ -10436,61 +10231,6 @@
         window.addEventListener("hashchange", staffHash);
         staffHash();
         $("closeBoard").onclick = () => $("boardDialog").close();
-        // Inside a claude.ai link the viewer's save prompt handles the file; opened as a local file, a plain download link does.
-        async function saveCsv(csv, name) {
-          const filename = name + "-" + new Date().toISOString().slice(0, 10) + ".csv";
-          const saver = window.claude?.use
-            ? await window.claude.use("downloads").catch(() => null)
-            : null;
-          if (saver) {
-            try {
-              await saver.save({ filename, data: csv });
-            } catch (e) {
-              if (e?.code !== "declined")
-                $("boardCount").textContent =
-                  "ส่งออกไม่สำเร็จในหน้านี้ ลองเปิดไฟล์ START-HERE.html แทน";
-            }
-            return;
-          }
-          const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = filename;
-          document.body.append(a);
-          a.click();
-          a.remove();
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
-        }
-        $("exportContacts").onclick = () => {
-          const players = readPlayers(store()),
-            plays = readPlays(store());
-          if (!players.length && !plays.length) {
-            $("boardCount").textContent = "ยังไม่มีข้อมูลให้ส่งออก";
-            return;
-          }
-          saveCsv(contactsCsv(players, plays, HOMES), "solar-sprint-contacts");
-        };
-        $("exportBoard").onclick = () => {
-          const plays = readPlays(store());
-          if (!plays.length) {
-            $("boardCount").textContent = "ยังไม่มีข้อมูลให้ส่งออก";
-            return;
-          }
-          saveCsv(toCsv(plays, HOMES), "solar-sprint-rounds");
-        };
-        $("clearBoard").onclick = () => {
-          if (
-            confirm(
-              translate(
-                "ลบรายชื่อและคะแนนทั้งหมดในเครื่องนี้? ควรส่งออก CSV ก่อน ลบแล้วกู้คืนไม่ได้",
-              ),
-            )
-          ) {
-            writePlays(store(), []);
-            writePlayers(store(), []);
-            openBoard();
-          }
-        };
         // RMA Energy badge popup: pops up on milestones by itself, and when the logo badge on the roof is tapped.
         let brandTimer = 0;
         function brandPop(title, text = "", manual = false) {
