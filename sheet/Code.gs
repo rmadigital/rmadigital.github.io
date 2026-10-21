@@ -95,7 +95,7 @@ function handle(req) {
     case "score":
       return withLock(() => score(req));
     case "board":
-      return board(null);
+      return cachedBoard();
     case "data":
       if (!kiosk) throw fail("bad_key", "รหัสเครื่องบูธไม่ถูกต้อง");
       return exportData();
@@ -166,6 +166,7 @@ function score(req) {
     Math.round((Number(req.remaining) || 0) * 10) / 10,
     "'" + String(r[P.code]),
   ]);
+  CacheService.getScriptCache().remove(BOARD_CACHE_KEY);
   // เก็บคะแนนดีที่สุดของคนนี้ไว้ในแท็บ Players
   const best = Number(r[P.best]);
   if (r[P.best] === "" || total > best) {
@@ -226,6 +227,20 @@ function exportData() {
       claimedAt: time(r[P.claimed]),
     }));
   return { plays, players, updatedAt: Date.now() };
+}
+
+// ทุกเครื่องในบูธขอตารางคะแนนเป็นระยะ: เก็บผลไว้ 10 วินาที จะได้ไม่ต้องอ่านทั้งชีตทุกครั้ง
+// (มีคะแนนใหม่เมื่อไหร่ ล้างทันที ตารางจึงไม่ค้างของเก่า)
+const BOARD_CACHE_KEY = "board";
+function cachedBoard() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get(BOARD_CACHE_KEY);
+  if (hit) return JSON.parse(hit);
+  const b = board(null);
+  try {
+    cache.put(BOARD_CACHE_KEY, JSON.stringify(b), 10);
+  } catch (e) {}
+  return b;
 }
 
 // ตารางคะแนนรวม: คะแนนดีที่สุดของแต่ละเบอร์ เรียงมากไปน้อย คะแนนเท่ากันให้คนที่ทำได้ก่อน
